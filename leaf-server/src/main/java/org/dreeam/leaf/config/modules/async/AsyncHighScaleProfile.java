@@ -23,6 +23,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 Enables the coordinated high-scale profile for servers with many concurrent players.
                 This enables asynchronous entity tracking and pathfinding, spatial entity and
                 mob-spawning and biome-cache optimizations, optimized powered-rail updates,
+                faster structure-generation future sequencing, asynchronous player-data saving,
                 and filtering of zero-delta entity movement packets.
                 Test plugins and gameplay mechanics before production use.
                 This does not enable parallel world ticking, alternate world-generation RNG, or
@@ -31,6 +32,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
             """
                 为大量并发玩家启用高负载配置组合.
                 将启用异步实体跟踪、异步寻路、实体和生物生成空间优化、生成用生物群系缓存、优化铁轨更新，并过滤位移为零的实体移动数据包.
+                同时启用更快的结构生成任务编排和异步玩家数据保存.
                 正式使用前请测试插件和玩法.
                 不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化.
                 启用异步模块后需要重启服务器.""");

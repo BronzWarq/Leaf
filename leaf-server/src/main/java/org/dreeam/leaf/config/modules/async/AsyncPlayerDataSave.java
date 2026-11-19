@@ -19,6 +19,7 @@ public class AsyncPlayerDataSave extends ConfigModule {
                 异步保存玩家数据.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
+        enabled |= AsyncHighScaleProfile.enabled;
 
         if (enabled) {
             org.dreeam.leaf.async.AsyncPlayerDataSaving.init();

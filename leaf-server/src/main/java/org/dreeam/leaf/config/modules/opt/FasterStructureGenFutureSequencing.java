@@ -17,5 +17,6 @@ public class FasterStructureGenFutureSequencing extends ConfigModule {
             globalConfig.pickStringRegionBased(
                 "May cause the inconsistent order of future compose tasks.",
                 "更快的结构生成任务分段."));
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
     }
 }
