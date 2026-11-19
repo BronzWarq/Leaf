@@ -29,7 +29,8 @@ public class AsyncPlayerDataSaving {
                     .setNameFormat("Leaf IO Thread")
                     .setUncaughtExceptionHandler(Util::onThreadException)
                     .build(),
-                new ThreadPoolExecutor.DiscardPolicy()
+                // A late save during shutdown must run on the caller instead of being discarded.
+                (runnable, executor) -> runnable.run()
             );
         } else {
             // Temp no-op
@@ -38,11 +39,12 @@ public class AsyncPlayerDataSaving {
     }
 
     public static Optional<Future<?>> submit(Runnable runnable) {
-        if (!AsyncPlayerDataSave.enabled) {
+        final ExecutorService pool = IO_POOL;
+        if (!AsyncPlayerDataSave.enabled || pool == null) {
             runnable.run();
             return Optional.empty();
         } else {
-            return Optional.of(IO_POOL.submit(runnable));
+            return Optional.of(pool.submit(runnable));
         }
     }
 }
