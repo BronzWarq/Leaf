@@ -56,6 +56,10 @@ public class WorldgenCryptoRandom extends WorldgenRandom {
         Hashing.hash(message, randomBits, cachedInternalState, 64, true);
     }
 
+    private static long lowBitsMask(final int count) {
+        return count == Long.SIZE ? -1L : (1L << count) - 1L;
+    }
+
     private long getBits(int count) {
         if (randomBitIndex >= MAX_RANDOM_BIT_INDEX) {
             moreRandomBits();
@@ -64,11 +68,11 @@ public class WorldgenCryptoRandom extends WorldgenRandom {
 
         int alignment = randomBitIndex & 63;
         if ((randomBitIndex >>> 6) == ((randomBitIndex + count) >>> 6)) {
-            long result = (randomBits[randomBitIndex >>> 6] >>> alignment) & ((1L << count) - 1);
+            long result = (randomBits[randomBitIndex >>> 6] >>> alignment) & lowBitsMask(count);
             randomBitIndex += count;
             return result;
         } else {
-            long result = (randomBits[randomBitIndex >>> 6] >>> alignment) & ((1L << (64 - alignment)) - 1);
+            long result = (randomBits[randomBitIndex >>> 6] >>> alignment) & lowBitsMask(64 - alignment);
             randomBitIndex += count;
             if (randomBitIndex >= MAX_RANDOM_BIT_INDEX) {
                 moreRandomBits();
@@ -76,7 +80,7 @@ public class WorldgenCryptoRandom extends WorldgenRandom {
             }
             alignment = randomBitIndex & 63;
             result <<= alignment;
-            result |= (randomBits[randomBitIndex >>> 6] >>> (64 - alignment)) & ((1L << alignment) - 1);
+            result |= (randomBits[randomBitIndex >>> 6] >>> (64 - alignment)) & lowBitsMask(alignment);
 
             return result;
         }
