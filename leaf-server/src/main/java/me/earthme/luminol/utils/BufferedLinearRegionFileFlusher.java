@@ -50,6 +50,7 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                break;
             }
         }
     }

@@ -17,7 +17,8 @@ public class ShutdownExecutors {
             LOGGER.info("Waiting for mob spawning thread to shutdown...");
             try {
                 server.mobSpawnExecutor.join(3000L);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -26,7 +27,8 @@ public class ShutdownExecutors {
             AsyncPlayerDataSaving.IO_POOL.shutdown();
             try {
                 AsyncPlayerDataSaving.IO_POOL.awaitTermination(60L, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -35,7 +37,8 @@ public class ShutdownExecutors {
             AsyncTracker.TRACKER_EXECUTOR.shutdown();
             try {
                 AsyncTracker.TRACKER_EXECUTOR.join(10_000L);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -44,7 +47,8 @@ public class ShutdownExecutors {
             AsyncPathProcessor.PATH_PROCESSING_EXECUTOR.shutdown();
             try {
                 AsyncPathProcessor.PATH_PROCESSING_EXECUTOR.awaitTermination(10L, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
     }
