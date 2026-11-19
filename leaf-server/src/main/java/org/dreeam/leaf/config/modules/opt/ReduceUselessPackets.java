@@ -16,6 +16,7 @@ public class ReduceUselessPackets extends ConfigModule {
     @Override
     public void onLoaded() {
         reduceUselessEntityMovePackets = globalConfig.getBoolean(basePath() + ".reduce-entity-move-packets", reduceUselessEntityMovePackets);
+        reduceUselessEntityMovePackets |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
         filterClientboundSetEntityMotionPacket = globalConfig.getBoolean(basePath() + ".reduce-entity-motion-packets", filterClientboundSetEntityMotionPacket);
         disableUselessParticles = globalConfig.getBoolean(basePath() + ".disable-useless-particles", disableUselessParticles);
     }
