@@ -33,5 +33,6 @@ public class AsyncMobSpawning extends ConfigModule {
         asyncMobSpawningInitialized = true;
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
+        enabled |= AsyncHighScaleProfile.enabled;
     }
 }
