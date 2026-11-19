@@ -17,5 +17,7 @@ public class OptimizeBiome extends ConfigModule {
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
         mobSpawn = globalConfig.getBoolean(basePath() + ".mob-spawning", false);
         advancement = globalConfig.getBoolean(basePath() + ".advancements", false);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
+        mobSpawn |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
     }
 }
