@@ -12,6 +12,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import org.dreeam.leaf.util.KDTree3D;
 import org.jspecify.annotations.NullMarked;
 
+import java.util.Arrays;
 import java.util.List;
 
 @NullMarked
@@ -34,10 +35,33 @@ public final class NatureSpawnChunkMap {
     private static final int SIZE_RADIUS = 9;
     private static final ServerPlayer[] EMPTY_PLAYERS = {};
     private static final double MAX_DIST = 16384.0001;
+    private static final int[][] TABLE_BFS_X = new int[SIZE_RADIUS][];
+    private static final int[][] TABLE_BFS_Z = new int[SIZE_RADIUS][];
+
+    static {
+        for (int i = 0; i < SIZE_RADIUS; i++) {
+            final long[] offsets = TABLE_BFS[i];
+            final int[] x = new int[offsets.length];
+            final int[] z = new int[offsets.length];
+            for (int j = 0; j < offsets.length; j++) {
+                x[j] = CoordinateUtils.getChunkX(offsets[j]);
+                z[j] = CoordinateUtils.getChunkZ(offsets[j]);
+            }
+            TABLE_BFS_X[i] = x;
+            TABLE_BFS_Z[i] = z;
+        }
+    }
 
     private final LongArrayList[] centersByRadius;
     private final LongSet set;
     private final KDTree3D tree;
+    private final double[][] coordinates = new double[3][];
+    private ServerPlayer[] players = EMPTY_PLAYERS;
+    private double[] playerX = {};
+    private double[] playerY = {};
+    private double[] playerZ = {};
+    private int[] playerIndices = {};
+    private int lastPlayerCount;
     private boolean ready;
 
     private static final class LongSet extends LongOpenHashSet {
@@ -86,11 +110,11 @@ public final class NatureSpawnChunkMap {
     }
 
     public void tick(final ServerLevel world, final List<LevelChunk> out) {
-        ServerPlayer[] players = initPlayer(world);
+        final int playerCount = initPlayer(world);
         for (int index = 0; index < SIZE_RADIUS; index++) {
             buildBfs(index);
         }
-        buildKdTree(world.purpurConfig.mobSpawningIgnoreCreativePlayers, players);
+        buildKdTree(world.purpurConfig.mobSpawningIgnoreCreativePlayers, playerCount);
         collectSpawningChunks(world.getChunkSource().fullChunksNonSync, this.set, out);
         this.ready = true;
     }
@@ -100,15 +124,14 @@ public final class NatureSpawnChunkMap {
         LongSet set = this.set;
         int size = deduplicate(list);
         long[] raw = list.elements();
-        long[] offsets = TABLE_BFS[index];
+        final int[] offsetsX = TABLE_BFS_X[index];
+        final int[] offsetsZ = TABLE_BFS_Z[index];
         for (int i = 0; i < size; i++) {
-            long center = raw[i];
-            int cx = CoordinateUtils.getChunkX(center);
-            int cz = CoordinateUtils.getChunkZ(center);
-            for (final long offset : offsets) {
-                int dx = CoordinateUtils.getChunkX(offset);
-                int dz = CoordinateUtils.getChunkZ(offset);
-                set.add(CoordinateUtils.getChunkKey(cx + dx, cz + dz));
+            final long center = raw[i];
+            final int cx = CoordinateUtils.getChunkX(center);
+            final int cz = CoordinateUtils.getChunkZ(center);
+            for (int j = 0; j < offsetsX.length; j++) {
+                set.add(CoordinateUtils.getChunkKey(cx + offsetsX[j], cz + offsetsZ[j]));
             }
         }
     }
@@ -132,9 +155,12 @@ public final class NatureSpawnChunkMap {
         return size + 1;
     }
 
-    private ServerPlayer[] initPlayer(final ServerLevel world) {
-        ServerPlayer[] players = world.players().toArray(EMPTY_PLAYERS);
-        for (final ServerPlayer player : players) {
+    private int initPlayer(final ServerLevel world) {
+        final var worldPlayers = world.players();
+        ensurePlayerCapacity(worldPlayers.size());
+        int playerCount = 0;
+        for (final ServerPlayer player : worldPlayers) {
+            players[playerCount++] = player;
             if (player.isSpectator()) {
                 continue;
             }
@@ -150,23 +176,43 @@ public final class NatureSpawnChunkMap {
             }
             this.centersByRadius[range].add(player.chunkPosition().longKey());
         }
-        return players;
+        if (lastPlayerCount > playerCount) {
+            Arrays.fill(players, playerCount, lastPlayerCount, null);
+        }
+        lastPlayerCount = playerCount;
+        return playerCount;
     }
 
-    private void buildKdTree(final boolean ignoreCreativePlayers, final ServerPlayer[] players) {
-        double[] pxl = new double[players.length];
-        double[] pyl = new double[players.length];
-        double[] pzl = new double[players.length];
+    private void buildKdTree(final boolean ignoreCreativePlayers, final int playerCount) {
         int i = 0;
-        for (final ServerPlayer p : players) {
+        ensurePlayerCapacity(playerCount);
+        for (int j = 0; j < playerCount; j++) {
+            final ServerPlayer p = players[j];
             if (!p.isSpectator() && !(ignoreCreativePlayers && p.isCreative())) {
-                pxl[i] = p.getX();
-                pyl[i] = p.getY();
-                pzl[i] = p.getZ();
+                playerX[i] = p.getX();
+                playerY[i] = p.getY();
+                playerZ[i] = p.getZ();
                 i++;
             }
         }
-        this.tree.build(new double[][]{pxl, pyl, pzl}, new int[i]);
+        if (playerIndices.length != i) {
+            playerIndices = new int[i];
+        }
+        coordinates[0] = playerX;
+        coordinates[1] = playerY;
+        coordinates[2] = playerZ;
+        this.tree.build(coordinates, playerIndices);
+    }
+
+    private void ensurePlayerCapacity(final int required) {
+        if (players.length >= required) {
+            return;
+        }
+        final int capacity = Math.max(required, Math.max(players.length << 1, 16));
+        players = Arrays.copyOf(players, capacity);
+        playerX = Arrays.copyOf(playerX, capacity);
+        playerY = Arrays.copyOf(playerY, capacity);
+        playerZ = Arrays.copyOf(playerZ, capacity);
     }
 
     private static void collectSpawningChunks(final ChunkCache<LevelChunk> chunks,

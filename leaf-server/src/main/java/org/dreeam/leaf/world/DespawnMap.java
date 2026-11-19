@@ -14,6 +14,7 @@ import net.minecraft.world.phys.Vec3;
 import org.bukkit.event.entity.EntityRemoveEvent;
 import org.dreeam.leaf.util.KDTree3D;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
@@ -21,11 +22,15 @@ import java.util.function.Consumer;
 public final class DespawnMap implements Consumer<Entity> {
 
     private static final MobCategory[] CATEGORIES = MobCategory.values();
-    private static final ServerPlayer[] EMPTY_PLAYERS = {};
 
     private final KDTree3D tree = new KDTree3D();
     private final double[] hard = new double[CATEGORIES.length];
     private final double[] sort = new double[CATEGORIES.length];
+    private final double[][] coordinates = new double[3][];
+    private double[] playerX = {};
+    private double[] playerY = {};
+    private double[] playerZ = {};
+    private int[] playerIndices = {};
     private boolean difficultyIsPeaceful = true;
 
     public boolean tick(final ServerLevel world, final EntityTickList entityTickList) {
@@ -70,24 +75,36 @@ public final class DespawnMap implements Consumer<Entity> {
                 sort[i] = hard[i];
             }
         }
-        final ServerPlayer[] players = world.players().toArray(EMPTY_PLAYERS);
-        final double[] playerX = new double[players.length];
-        final double[] playerY = new double[players.length];
-        final double[] playerZ = new double[players.length];
+        final var worldPlayers = world.players();
+        ensurePlayerCapacity(worldPlayers.size());
         int i = 0;
-        for (int j = 0; j < players.length; j++) {
-            final ServerPlayer p = players[j];
+        for (final ServerPlayer p : worldPlayers) {
             if (EntitySelector.PLAYER_AFFECTS_SPAWNING.test(p)) {
                 playerX[i] = p.getX();
                 playerY[i] = p.getY();
                 playerZ[i] = p.getZ();
-                players[i] = p;
                 i++;
             }
         }
-        tree.build(new double[][]{playerX, playerY, playerZ}, new int[i]);
+        if (playerIndices.length != i) {
+            playerIndices = new int[i];
+        }
+        coordinates[0] = playerX;
+        coordinates[1] = playerY;
+        coordinates[2] = playerZ;
+        tree.build(coordinates, playerIndices);
         entityTickList.forEach(this);
         return true;
+    }
+
+    private void ensurePlayerCapacity(final int required) {
+        if (playerX.length >= required) {
+            return;
+        }
+        final int capacity = Math.max(required, Math.max(playerX.length << 1, 16));
+        playerX = Arrays.copyOf(playerX, capacity);
+        playerY = Arrays.copyOf(playerY, capacity);
+        playerZ = Arrays.copyOf(playerZ, capacity);
     }
 
     private boolean checkDespawn(final Entity entity) {

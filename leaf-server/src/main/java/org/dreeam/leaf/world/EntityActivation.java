@@ -17,6 +17,8 @@ import org.dreeam.leaf.config.modules.opt.DynamicActivationofBrain;
 import org.dreeam.leaf.util.KDTree2D;
 import org.dreeam.leaf.util.KDTree3D;
 
+import java.util.Arrays;
+
 public final class EntityActivation {
     private static final ActivationType[] ACTIVATION_TYPES = ActivationType.values();
     private static final ServerPlayer[] EMPTY_PLAYERS = {};
@@ -25,6 +27,15 @@ public final class EntityActivation {
     private final LongOpenHashSet chunks = new LongOpenHashSet();
     private final KDTree2D kdTree2 = new KDTree2D();
     private final KDTree3D kdTree3 = new KDTree3D();
+    private final double[] ranges = new double[ACTIVATION_TYPES.length];
+    private final double[][] coordinates2 = new double[2][];
+    private final double[][] coordinates3 = new double[3][];
+    private ServerPlayer[] players = EMPTY_PLAYERS;
+    private double[] playerX = {};
+    private double[] playerY = {};
+    private double[] playerZ = {};
+    private int[] playerIndices = {};
+    private int lastPlayerCount;
 
     public void activateEntities(ServerLevel world) {
         final int miscActivationRange = world.spigotConfig.miscActivationRange;
@@ -48,7 +59,7 @@ public final class EntityActivation {
         maxRange = Math.max(maxRange, villagerActivationRange);
         maxRange = Math.min((world.spigotConfig.simulationDistance << 4) - 8, maxRange);
 
-        final double[] ranges = new double[ACTIVATION_TYPES.length];
+        Arrays.fill(ranges, 0.0);
         ranges[ActivationType.WATER.ordinal()] = waterActivationRange;
         ranges[ActivationType.FLYING_MONSTER.ordinal()] = flyingActivationRange;
         ranges[ActivationType.VILLAGER.ordinal()] = villagerActivationRange;
@@ -70,13 +81,10 @@ public final class EntityActivation {
         final KDTree3D kdTree3 = this.kdTree3;
         final boolean tickMarkers = world.paperConfig().entities.markers.tick;
         final boolean dab = DynamicActivationofBrain.enabled;
+        final var worldPlayers = world.players();
+        ensurePlayerCapacity(worldPlayers.size());
         int playerSize = 0;
-        final ServerPlayer[] players = world.players().toArray(EMPTY_PLAYERS);
-        final double[] pxl = new double[players.length];
-        final double[] pyl = new double[players.length];
-        final double[] pzl = new double[players.length];
-        for (int i = 0; i < players.length; i++) {
-            final ServerPlayer p = players[i];
+        for (final ServerPlayer p : worldPlayers) {
             p.activatedTick = currentTick;
             if (world.spigotConfig.ignoreSpectatorActivation && p.isSpectator()) {
                 continue;
@@ -85,11 +93,16 @@ public final class EntityActivation {
                 continue; // Purpur - AFK API
             }
             players[playerSize] = p;
-            pxl[playerSize] = p.getX();
-            pyl[playerSize] = p.getY();
-            pzl[playerSize] = p.getZ();
+            playerX[playerSize] = p.getX();
+            playerY[playerSize] = p.getY();
+            playerZ[playerSize] = p.getZ();
             playerSize++;
         }
+
+        if (lastPlayerCount > playerSize) {
+            Arrays.fill(players, playerSize, lastPlayerCount, null);
+        }
+        lastPlayerCount = playerSize;
 
         if (playerSize == 0) {
             entities.clear();
@@ -97,9 +110,18 @@ public final class EntityActivation {
             return;
         }
 
-        final int[] indices = new int[playerSize];
-        kdTree2.build(new double[][]{pxl, pzl}, indices);
-        if (dab) kdTree3.build(new double[][]{pxl, pyl, pzl}, indices);
+        if (playerIndices.length != playerSize) {
+            playerIndices = new int[playerSize];
+        }
+        coordinates2[0] = playerX;
+        coordinates2[1] = playerZ;
+        kdTree2.build(coordinates2, playerIndices);
+        if (dab) {
+            coordinates3[0] = playerX;
+            coordinates3[1] = playerY;
+            coordinates3[2] = playerZ;
+            kdTree3.build(coordinates3, playerIndices);
+        }
 
         final double worldHeight = world.getHeight();
         getEntities(world, players, playerSize, maxRange, worldHeight, lookup, chunks, entities);
@@ -156,6 +178,17 @@ public final class EntityActivation {
             }
             entity.activatedPriority = priority;
         }
+    }
+
+    private void ensurePlayerCapacity(final int required) {
+        if (players.length >= required) {
+            return;
+        }
+        final int capacity = Math.max(required, Math.max(players.length << 1, 16));
+        players = Arrays.copyOf(players, capacity);
+        playerX = Arrays.copyOf(playerX, capacity);
+        playerY = Arrays.copyOf(playerY, capacity);
+        playerZ = Arrays.copyOf(playerZ, capacity);
     }
 
     private static void getEntities(ServerLevel world, ServerPlayer[] players, int playerSize, int maxRange, double worldHeight, EntityLookup lookup, LongOpenHashSet chunks, ObjectArrayList<Entity> entities) {

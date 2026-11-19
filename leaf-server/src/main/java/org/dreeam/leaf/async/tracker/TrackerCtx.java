@@ -70,6 +70,17 @@ public final class TrackerCtx {
         this.world = world;
     }
 
+    void reset() {
+        packets.clear();
+        itemFrames.clear();
+        stopSeen.clear();
+        startSeen.clear();
+        resync.clear();
+        pluginEntity.clear();
+        syncAttributes.clear();
+        updateData.clear();
+    }
+
     public void collectStopSeenByPlayer(ServerPlayerConnection connection, ChunkMap.TrackedEntity tracker) {
         if (stopSeen.isEmpty() || stopSeen.getLast().tracker != tracker) {
             stopSeen.add(new StopSeen(tracker, new ObjectArrayList<>()));

@@ -19,6 +19,7 @@ import org.dreeam.leaf.util.TrackerSlice;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.*;
 
@@ -30,8 +31,20 @@ public final class AsyncTracker {
     public static @Nullable ThreadPool TRACKER_EXECUTOR;
 
     private Future<TrackerCtx> @Nullable [] fut;
+    // One tracker owns one world; the server joins its futures before the next tick.
+    private TrackerCtx @Nullable [] contextPool = {};
 
-    private final Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> capture = new Reference2ReferenceOpenHashMap<>();
+    /*
+     * The tracker tasks only read the capture map after tick() has handed it
+     * off. Keep two maps and swap them instead of cloning every entry on every
+     * tick. The previous task has been joined by onTickEnd() before the map is
+     * reused, so this remains single-writer/single-reader without additional
+     * synchronization on the hot path.
+     */
+    private Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> capture = new Reference2ReferenceOpenHashMap<>();
+    private Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> reusableCapture = new Reference2ReferenceOpenHashMap<>();
+    private Entity[] entitySnapshot = {};
+    private int entitySnapshotSize;
 
     public static void init() {
         if (TRACKER_EXECUTOR != null) {
@@ -54,24 +67,43 @@ public final class AsyncTracker {
     }
 
     public void tick(final ServerLevel world, final ReferenceList<Entity> entities) {
-        Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> cap = capture.clone();
+        final Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> cap = capture;
+        capture = reusableCapture;
+        reusableCapture = cap;
         capture.clear();
         handlePlayer(world);
         int len = entities.size();
         if (len == 0) {
+            if (entitySnapshotSize != 0) {
+                Arrays.fill(entitySnapshot, 0, entitySnapshotSize, null);
+                entitySnapshotSize = 0;
+            }
             return;
         }
-        Entity[] raw = new Entity[len];
-        System.arraycopy(entities.getRawDataUnchecked(), 0, raw, 0, len);
-        TrackerSlice slice = new TrackerSlice(raw);
+        if (entitySnapshot.length < len) {
+            entitySnapshot = new Entity[len];
+        } else if (entitySnapshotSize > len) {
+            Arrays.fill(entitySnapshot, len, entitySnapshotSize, null);
+        }
+        System.arraycopy(entities.getRawDataUnchecked(), 0, entitySnapshot, 0, len);
+        entitySnapshotSize = len;
+        TrackerSlice slice = new TrackerSlice(entitySnapshot, 0, len);
 
         ThreadPool exec = Objects.requireNonNull(TRACKER_EXECUTOR);
         int min = MultithreadedTracker.minEntitiesPerTask;
         TrackerSlice[] slices = len <= exec.threadCount() * min ? slice.chunks(min) : slice.splitEvenly(exec.threadCount());
+        if (contextPool.length < slices.length) {
+            contextPool = Arrays.copyOf(contextPool, slices.length);
+        }
         @SuppressWarnings("unchecked")
         Future<TrackerCtx>[] futures = new Future[slices.length];
         for (int i = 0; i < futures.length; i++) {
-            futures[i] = exec.submitOrRun(new TrackerTask(world, slices[i], cap));
+            TrackerCtx context = contextPool[i];
+            if (context == null) {
+                context = new TrackerCtx(world);
+                contextPool[i] = context;
+            }
+            futures[i] = exec.submitOrRun(new TrackerTask(world, slices[i], cap, context));
         }
         exec.unpark();
         this.fut = futures;

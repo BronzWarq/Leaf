@@ -67,7 +67,11 @@ public final class AsyncPathProcessor {
     }
 
     private static int getCorePoolSize() {
-        return 1;
+        // Path requests are submitted from the main thread in bursts. Keeping
+        // only one core worker makes every other request wait in the queue and
+        // prevents the configured parallelism from being used until the queue
+        // is full. Start the configured workers as demand arrives instead.
+        return getMaxPoolSize();
     }
 
     private static int getMaxPoolSize() {

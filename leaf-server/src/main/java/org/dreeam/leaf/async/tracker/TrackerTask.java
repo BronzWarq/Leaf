@@ -13,11 +13,12 @@ import org.jspecify.annotations.NullMarked;
 import java.util.concurrent.Callable;
 
 @NullMarked
-public record TrackerTask(ServerLevel world, TrackerSlice entities, Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> cap) implements Callable<TrackerCtx> {
+public record TrackerTask(ServerLevel world, TrackerSlice entities, Reference2ReferenceOpenHashMap<ChunkMap.TrackedEntity, TrackerInput> cap, TrackerCtx context) implements Callable<TrackerCtx> {
 
     @Override
     public TrackerCtx call() throws Exception {
-        final TrackerCtx ctx = new TrackerCtx(this.world);
+        final TrackerCtx ctx = this.context;
+        ctx.reset();
         final Entity[] raw = entities.array();
         for (int i = entities.start(); i < entities.end(); i++) {
             final Entity entity = raw[i];

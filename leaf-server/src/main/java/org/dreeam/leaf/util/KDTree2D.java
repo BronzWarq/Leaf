@@ -1,10 +1,12 @@
 package org.dreeam.leaf.util;
 
+import java.util.Arrays;
+
 public final class KDTree2D {
 
     private static final double[] EMPTY_DOUBLES = {};
     private static final int[] EMPTY_INTS = {};
-    private static final Node[] EMPTY_NODES = {};
+    private static final byte[] EMPTY_BYTES = {};
     private static final boolean ENABLE_FMA = LeafConstants.ENABLE_FMA;
 
     private static final int INITIAL_CAPACITY = 8;
@@ -12,7 +14,11 @@ public final class KDTree2D {
     /// indicate empty on [#search]
     /// indicate leaf node on [#nrl]
     private static final int SENTINEL = -1;
-    private Node[] stack = EMPTY_NODES;
+    private int[] stackParent = EMPTY_INTS;
+    private int[] stackOffset = EMPTY_INTS;
+    private int[] stackLength = EMPTY_INTS;
+    private int[] stackDepth = EMPTY_INTS;
+    private byte[] stackLeft = EMPTY_BYTES;
     private int[] search = EMPTY_INTS;
     /// [#SENTINEL] for leaf / right node index for internal
     private int[] nrl = EMPTY_INTS;
@@ -34,33 +40,50 @@ public final class KDTree2D {
 
         int st = 0;
         ensureConstruct(st);
-        stack[st++] = new Node(SENTINEL, false, 0, indices.length, 0);
+        stackParent[st] = SENTINEL;
+        stackLeft[st] = 0;
+        stackOffset[st] = 0;
+        stackLength[st] = indices.length;
+        stackDepth[st++] = 0;
         int nodeLen = 0;
         while (st != 0) {
             ensureNode(nodeLen);
-            final Node n = stack[--st];
+            --st;
+            final int parent = stackParent[st];
+            final boolean left = stackLeft[st] != 0;
+            final int offset = stackOffset[st];
+            final int length = stackLength[st];
+            final int depth = stackDepth[st];
             final int curr = nodeLen++;
-            if (n.len() <= 1) {
-                final int p = indices[n.offset()];
+            if (length <= 1) {
+                final int p = indices[offset];
                 nrl[curr] = SENTINEL;
                 nxl[curr] = coords[0][p];
                 nyl[curr] = coords[1][p];
                 nil[curr] = p;
             } else {
-                final int axis = (n.depth()) % 2;
-                final int med = (n.len() - 1) / 2;
-                final int k = n.offset() + med;
+                final int axis = depth % 2;
+                final int med = (length - 1) / 2;
+                final int k = offset + med;
                 final double[] coord = coords[axis];
-                PartialSort.nthElement(indices, coord, n.offset(), n.offset() + n.len() - 1, k);
+                PartialSort.nthElement(indices, coord, offset, offset + length - 1, k);
 
                 nxl[curr] = coord[indices[k]];
 
-                ensureConstruct(st);
-                stack[st++] = new Node(curr, false, n.offset() + med + 1, n.len() - med - 1, n.depth() + 1);
-                stack[st++] = new Node(curr, true, n.offset(), med + 1, n.depth() + 1);
+                ensureConstruct(st + 1);
+                stackParent[st] = curr;
+                stackLeft[st] = 0;
+                stackOffset[st] = offset + med + 1;
+                stackLength[st] = length - med - 1;
+                stackDepth[st++] = depth + 1;
+                stackParent[st] = curr;
+                stackLeft[st] = 1;
+                stackOffset[st] = offset;
+                stackLength[st] = med + 1;
+                stackDepth[st++] = depth + 1;
             }
-            if (n.parent() != SENTINEL) {
-                nrl[n.parent()] = n.left() ? SENTINEL : curr;
+            if (parent != SENTINEL) {
+                nrl[parent] = left ? SENTINEL : curr;
             }
         }
 
@@ -74,14 +97,17 @@ public final class KDTree2D {
         search[0] = length == 0 ? SENTINEL : 0;
     }
 
-    private void ensureConstruct(final int st) {
-        if (st != stack.length && st + 1 != stack.length) {
+    private void ensureConstruct(final int required) {
+        if (required < stackParent.length) {
             return;
         }
-        final int newLen = stack.length + 2;
-        final Node[] b = new Node[Math.max(INITIAL_CAPACITY, newLen + (newLen >> 1))];
-        System.arraycopy(stack, 0, b, 0, st);
-        stack = b;
+        final int newLen = Math.max(INITIAL_CAPACITY, required + 1);
+        final int capacity = newLen + (newLen >> 1);
+        stackParent = Arrays.copyOf(stackParent, capacity);
+        stackOffset = Arrays.copyOf(stackOffset, capacity);
+        stackLength = Arrays.copyOf(stackLength, capacity);
+        stackDepth = Arrays.copyOf(stackDepth, capacity);
+        stackLeft = Arrays.copyOf(stackLeft, capacity);
     }
 
     private void ensureNode(final int preserve) {
@@ -251,8 +277,5 @@ public final class KDTree2D {
             }
         }
         return nearest;
-    }
-
-    private record Node(int parent, boolean left, int offset, int len, int depth) {
     }
 }
