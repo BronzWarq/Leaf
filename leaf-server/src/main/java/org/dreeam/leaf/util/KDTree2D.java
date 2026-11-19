@@ -30,11 +30,15 @@ public final class KDTree2D {
     private int[] nil = EMPTY_INTS;
 
     public void build(final double[][] coords, final int[] indices) {
-        if (indices.length == 0 || coords.length != 2) {
+        build(coords, indices, indices.length);
+    }
+
+    public void build(final double[][] coords, final int[] indices, final int size) {
+        if (size == 0 || coords.length != 2) {
             ensureSearch(0, 0);
             return;
         }
-        for (int i = 0; i < indices.length; i++) {
+        for (int i = 0; i < size; i++) {
             indices[i] = i;
         }
 
@@ -43,7 +47,7 @@ public final class KDTree2D {
         stackParent[st] = SENTINEL;
         stackLeft[st] = 0;
         stackOffset[st] = 0;
-        stackLength[st] = indices.length;
+        stackLength[st] = size;
         stackDepth[st++] = 0;
         int nodeLen = 0;
         while (st != 0) {
@@ -87,7 +91,7 @@ public final class KDTree2D {
             }
         }
 
-        ensureSearch(indices.length, nodeLen);
+        ensureSearch(size, nodeLen);
     }
 
     private void ensureSearch(final int length, final int nodeLen) {

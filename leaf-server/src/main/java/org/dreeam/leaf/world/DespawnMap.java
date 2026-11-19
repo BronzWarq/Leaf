@@ -86,13 +86,13 @@ public final class DespawnMap implements Consumer<Entity> {
                 i++;
             }
         }
-        if (playerIndices.length != i) {
-            playerIndices = new int[i];
+        if (playerIndices.length < i) {
+            playerIndices = Arrays.copyOf(playerIndices, Math.max(i, Math.max(playerIndices.length << 1, 16)));
         }
         coordinates[0] = playerX;
         coordinates[1] = playerY;
         coordinates[2] = playerZ;
-        tree.build(coordinates, playerIndices);
+        tree.build(coordinates, playerIndices, i);
         entityTickList.forEach(this);
         return true;
     }

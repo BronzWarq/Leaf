@@ -195,13 +195,13 @@ public final class NatureSpawnChunkMap {
                 i++;
             }
         }
-        if (playerIndices.length != i) {
-            playerIndices = new int[i];
+        if (playerIndices.length < i) {
+            playerIndices = Arrays.copyOf(playerIndices, Math.max(i, Math.max(playerIndices.length << 1, 16)));
         }
         coordinates[0] = playerX;
         coordinates[1] = playerY;
         coordinates[2] = playerZ;
-        this.tree.build(coordinates, playerIndices);
+        this.tree.build(coordinates, playerIndices, i);
     }
 
     private void ensurePlayerCapacity(final int required) {

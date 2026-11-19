@@ -110,17 +110,17 @@ public final class EntityActivation {
             return;
         }
 
-        if (playerIndices.length != playerSize) {
-            playerIndices = new int[playerSize];
+        if (playerIndices.length < playerSize) {
+            playerIndices = Arrays.copyOf(playerIndices, Math.max(playerSize, Math.max(playerIndices.length << 1, 16)));
         }
         coordinates2[0] = playerX;
         coordinates2[1] = playerZ;
-        kdTree2.build(coordinates2, playerIndices);
+        kdTree2.build(coordinates2, playerIndices, playerSize);
         if (dab) {
             coordinates3[0] = playerX;
             coordinates3[1] = playerY;
             coordinates3[2] = playerZ;
-            kdTree3.build(coordinates3, playerIndices);
+            kdTree3.build(coordinates3, playerIndices, playerSize);
         }
 
         final double worldHeight = world.getHeight();
