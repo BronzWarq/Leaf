@@ -33,6 +33,7 @@ public final class AsyncTracker {
     private Future<TrackerCtx> @Nullable [] fut;
     // One tracker owns one world; the server joins its futures before the next tick.
     private TrackerCtx @Nullable [] contextPool = {};
+    private Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[] packetMapPool = newPacketMapArray(0);
 
     /*
      * The tracker tasks only read the capture map after tick() has handed it
@@ -163,19 +164,28 @@ public final class AsyncTracker {
         handle(task);
     }
 
-    private static void handle(final Future<TrackerCtx>[] futures) {
+    @SuppressWarnings("unchecked")
+    private static Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[] newPacketMapArray(final int length) {
+        return (Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[]) new Object2ObjectOpenHashMap[length];
+    }
+
+    private void handle(final Future<TrackerCtx>[] futures) {
+        final int packetMapCount = futures.length - 1;
         try {
             TrackerCtx ctx = futures[0].get();
-            @SuppressWarnings("unchecked")
-            Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[] packets = new Object2ObjectOpenHashMap[futures.length - 1];
-            for (int i = 1; i < futures.length; i++) {
-                packets[i - 1] = ctx.join(futures[i].get());
+            if (packetMapPool.length < packetMapCount) {
+                packetMapPool = newPacketMapArray(packetMapCount);
             }
-            ctx.handle(packets);
+            for (int i = 0; i < packetMapCount; i++) {
+                packetMapPool[i] = ctx.join(futures[i + 1].get());
+            }
+            ctx.handle(packetMapPool, packetMapCount);
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (final ExecutionException e) {
             throw new RuntimeException(e);
+        } finally {
+            Arrays.fill(packetMapPool, 0, Math.min(packetMapCount, packetMapPool.length), null);
         }
     }
 }

@@ -151,7 +151,7 @@ public final class TrackerCtx {
         return other.packets;
     }
 
-    void handle(Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[] other) {
+    void handle(Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[] other, int otherCount) {
         if (!pluginEntity.isEmpty()) {
             for (ChunkMap.TrackedEntity tracker : pluginEntity) {
                 handlePlugin(tracker);
@@ -165,8 +165,8 @@ public final class TrackerCtx {
             }
         }
 
-        for (Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>> otherPackets : other) {
-            flush(world, otherPackets);
+        for (int i = 0; i < otherCount; i++) {
+            flush(world, other[i]);
         }
 
         if (!resync.isEmpty()) {
