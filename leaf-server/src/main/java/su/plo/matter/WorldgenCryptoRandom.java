@@ -34,7 +34,7 @@ public class WorldgenCryptoRandom extends WorldgenRandom {
     }
 
     public void setSecureSeed(int x, int z, Globals.Salt typeSalt, long salt) {
-        System.arraycopy(Globals.worldSeed, 0, this.worldSeed, 0, Globals.WORLD_SEED_LONGS);
+        System.arraycopy(Globals.worldSeed.get(), 0, this.worldSeed, 0, Globals.WORLD_SEED_LONGS);
         message[0] = ((long) x << 32) | ((long) z & 0xffffffffL);
         message[1] = ((long) Globals.dimension.get() << 32) | (salt & 0xffffffffL);
         message[2] = typeSalt.ordinal();
@@ -90,7 +90,7 @@ public class WorldgenCryptoRandom extends WorldgenRandom {
     public RandomSource fork() {
         WorldgenCryptoRandom fork = new WorldgenCryptoRandom(0, 0, null, 0);
 
-        System.arraycopy(Globals.worldSeed, 0, fork.worldSeed, 0, Globals.WORLD_SEED_LONGS);
+        System.arraycopy(this.worldSeed, 0, fork.worldSeed, 0, Globals.WORLD_SEED_LONGS);
         fork.message[0] = this.message[0];
         fork.message[1] = this.message[1];
         fork.message[2] = this.message[2];

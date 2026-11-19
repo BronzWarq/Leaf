@@ -12,7 +12,7 @@ public class Globals {
     public static final int WORLD_SEED_LONGS = 16;
     public static final int WORLD_SEED_BITS = WORLD_SEED_LONGS * 64;
 
-    public static final long[] worldSeed = new long[WORLD_SEED_LONGS];
+    public static final ThreadLocal<long[]> worldSeed = ThreadLocal.withInitial(() -> new long[WORLD_SEED_LONGS]);
     public static final ThreadLocal<Integer> dimension = ThreadLocal.withInitial(() -> 0);
 
     public enum Salt {
@@ -40,7 +40,7 @@ public class Globals {
         if (!org.dreeam.leaf.config.modules.misc.SecureSeed.enabled) return;
 
         long[] seed = world.getServer().getWorldGenSettings().options().featureSeed();
-        System.arraycopy(seed, 0, worldSeed, 0, WORLD_SEED_LONGS);
+        System.arraycopy(seed, 0, worldSeed.get(), 0, WORLD_SEED_LONGS);
         int worldIndex = Iterables.indexOf(world.getServer().levelKeys(), it -> it == world.dimension());
         if (worldIndex == -1)
             worldIndex = world.getServer().levelKeys().size(); // if we are in world construction it may not have been added to the map yet
