@@ -18,6 +18,7 @@ public class ReduceUselessPackets extends ConfigModule {
         reduceUselessEntityMovePackets = globalConfig.getBoolean(basePath() + ".reduce-entity-move-packets", reduceUselessEntityMovePackets);
         reduceUselessEntityMovePackets |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
         filterClientboundSetEntityMotionPacket = globalConfig.getBoolean(basePath() + ".reduce-entity-motion-packets", filterClientboundSetEntityMotionPacket);
+        filterClientboundSetEntityMotionPacket |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
         disableUselessParticles = globalConfig.getBoolean(basePath() + ".disable-useless-particles", disableUselessParticles);
     }
 }
