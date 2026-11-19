@@ -37,6 +37,7 @@ public class AsyncPathfinding extends ConfigModule {
 
         final int availableProcessors = Runtime.getRuntime().availableProcessors();
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
+        enabled |= AsyncHighScaleProfile.enabled;
         asyncPathfindingMaxThreads = globalConfig.getInt(basePath() + ".max-threads", asyncPathfindingMaxThreads);
         asyncPathfindingKeepalive = globalConfig.getInt(basePath() + ".keepalive", asyncPathfindingKeepalive);
         asyncPathfindingQueueSize = globalConfig.getInt(basePath() + ".queue-size", asyncPathfindingQueueSize);

@@ -16,6 +16,7 @@ public class OptimizeDespawn extends ConfigModule {
     @Override
     public void onLoaded() {
         enabled = globalConfig.getBoolean(basePath(), enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
         if (enabled) {
             if (!LeafConstants.ENABLE_FMA) {
                 LOGGER.info("NOTE: Recommend enabling FMA to work with optimize-mob-despawn.");

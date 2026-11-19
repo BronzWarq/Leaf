@@ -16,5 +16,6 @@ public class OptimizeEntityActivation extends ConfigModule {
     @Override
     public void onLoaded() {
         enabled = globalConfig.getBoolean(getBasePath(), enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
     }
 }

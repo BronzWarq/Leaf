@@ -22,5 +22,6 @@ public class OptimizeRandomTick extends ConfigModule {
         }
 
         enabled = globalConfig.getBoolean(basePath(), enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
     }
 }

@@ -16,5 +16,6 @@ public class OptimizeMobSpawning extends ConfigModule {
     @Override
     public void onLoaded() {
         enabled = globalConfig.getBoolean(basePath(), enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
     }
 }

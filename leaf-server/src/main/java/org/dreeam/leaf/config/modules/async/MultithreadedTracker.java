@@ -35,6 +35,7 @@ public class MultithreadedTracker extends ConfigModule {
         asyncTrackerInitialized = true;
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", false);
+        enabled |= AsyncHighScaleProfile.enabled;
         threads = globalConfig.getInt(basePath() + ".threads", 0);
         if (threads <= 0) {
             threads = Math.min(Runtime.getRuntime().availableProcessors() / 2, 4);
