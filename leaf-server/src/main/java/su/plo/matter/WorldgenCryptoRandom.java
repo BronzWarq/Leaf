@@ -97,6 +97,8 @@ public class WorldgenCryptoRandom extends WorldgenRandom {
         fork.message[3] = this.message[3];
         fork.randomBitIndex = this.randomBitIndex;
         fork.counter = this.counter;
+        System.arraycopy(this.randomBits, 0, fork.randomBits, 0, this.randomBits.length);
+        System.arraycopy(this.cachedInternalState, 0, fork.cachedInternalState, 0, this.cachedInternalState.length);
         fork.nextLong();
 
         return fork;
