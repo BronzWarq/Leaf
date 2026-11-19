@@ -21,5 +21,6 @@ public class OptimizedPoweredRails extends ConfigModule {
                 """
                     是否使用铁轨优化。
                     优化实现基于 GitHub@FxMori 的 RailOptimization 模组。"""));
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.enabled;
     }
 }
