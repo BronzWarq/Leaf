@@ -23,10 +23,12 @@ public class MultithreadedTracker extends ConfigModule {
         globalConfig.addCommentRegionBased(basePath(), """
                 ** Experimental Feature **
                 Make entity tracking asynchronously, can improve performance significantly,
-                especially in some massive entities in small area situations.""", """
+                especially in some massive entities in small area situations.
+                min-entities-per-task controls the smallest tracker slice before work is split evenly.""", """
                 ** 实验性功能 **
                 异步实体跟踪,
-                在实体数量多且密集的情况下效果明显.""");
+                在实体数量多且密集的情况下效果明显.
+                min-entities-per-task 控制均匀分片前每个跟踪任务的最小实体数.""");
 
         if (asyncTrackerInitialized) {
             globalConfig.getConfigSection(basePath());
@@ -37,6 +39,10 @@ public class MultithreadedTracker extends ConfigModule {
         enabled = globalConfig.getBoolean(basePath() + ".enabled", false);
         enabled |= AsyncHighScaleProfile.enabled;
         threads = globalConfig.getInt(basePath() + ".threads", 0);
+        minEntitiesPerTask = globalConfig.getInt(basePath() + ".min-entities-per-task", minEntitiesPerTask);
+        if (minEntitiesPerTask <= 0) {
+            minEntitiesPerTask = 64;
+        }
         if (threads <= 0) {
             threads = Math.min(Runtime.getRuntime().availableProcessors() / 2, 4);
         }
