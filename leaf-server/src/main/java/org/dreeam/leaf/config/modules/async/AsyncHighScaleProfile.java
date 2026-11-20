@@ -20,6 +20,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public static boolean optimizeNonFlushPacketSending = false;
     public static boolean sleepingBlockEntities = false;
     public static boolean throttleMobSpawning = false;
+    public static boolean onlyTickItemsInHand = false;
 
     @Override
     public void onLoaded() {
@@ -40,6 +41,8 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 containers, furnaces, and supported block entities until their state changes.
                 throttle-mob-spawning is an opt-in farm mode that backs off repeated failed
                 natural-spawn attempts in saturated chunks; it can delay mob-farm recovery.
+                only-tick-items-in-hand is an opt-in player-throughput mode that skips inventory
+                item ticks outside the main hand; custom items and plugins may depend on those ticks.
                 This does not enable parallel world ticking, alternate world-generation RNG, or
                 packet optimizations that are incompatible with packet-intercepting plugins.
                 Requires a restart when enabling asynchronous modules.""",
@@ -52,6 +55,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 optimize-non-flush-packets 是可选网络模式，与 ProtocolLib 和拦截数据包调度的插件不兼容.
                 sleeping-block-entities 是可选的农场模式，在状态变化前暂停不活跃的漏斗、容器、熔炉和其他受支持的方块实体.
                 throttle-mob-spawning 是可选的农场模式，在生物已达到限制的区块中降低重复失败的自然生成尝试；可能延迟生物农场恢复.
+                only-tick-items-in-hand 是可选的玩家吞吐模式，跳过主手之外的物品栏物品 tick；自定义物品和插件可能依赖这些 tick.
                 不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化.
                 启用异步模块后需要重启服务器.""");
 
@@ -60,6 +64,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
         optimizeNonFlushPacketSending = enabled && globalConfig.getBoolean(basePath() + ".optimize-non-flush-packets", optimizeNonFlushPacketSending);
         sleepingBlockEntities = enabled && globalConfig.getBoolean(basePath() + ".sleeping-block-entities", sleepingBlockEntities);
         throttleMobSpawning = enabled && globalConfig.getBoolean(basePath() + ".throttle-mob-spawning", throttleMobSpawning);
+        onlyTickItemsInHand = enabled && globalConfig.getBoolean(basePath() + ".only-tick-items-in-hand", onlyTickItemsInHand);
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
         }
