@@ -4,7 +4,6 @@ import ca.spottedleaf.moonrise.patches.chunk_system.entity.ChunkSystemEntity;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.chunk.ChunkData;
 import io.papermc.paper.event.player.PlayerTrackEntityEvent;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectFunction;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.Holder;
@@ -44,9 +43,10 @@ import java.util.function.Predicate;
 
 @NullMarked
 public final class TrackerCtx {
-    @SuppressWarnings("unchecked")
-    private static final Object2ObjectFunction<ServerPlayerConnection, ObjectArrayList<Packet<?>>> INIT_PACKET_LIST = x -> ObjectArrayList.wrap(new Packet[16], 0);
+    private static final int MAX_REUSABLE_PACKET_LIST_CAPACITY = 256;
+    private static final int MAX_PACKET_LIST_POOL_SIZE = 16_384;
     private final Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>> packets = new Object2ObjectOpenHashMap<>();
+    private final ObjectArrayList<ObjectArrayList<Packet<?>>> packetListPool = new ObjectArrayList<>();
     private final ServerLevel world;
     private final ObjectArrayList<ItemFrame> itemFrames = new ObjectArrayList<>();
     private final ObjectArrayList<StopSeen> stopSeen = new ObjectArrayList<>();
@@ -71,6 +71,9 @@ public final class TrackerCtx {
     }
 
     void reset() {
+        for (ObjectArrayList<Packet<?>> list : packets.values()) {
+            recyclePacketList(list);
+        }
         packets.clear();
         itemFrames.clear();
         stopSeen.clear();
@@ -116,7 +119,7 @@ public final class TrackerCtx {
     }
 
     public void send(ServerPlayerConnection connection, Packet<?> packet) {
-        packets.computeIfAbsent(connection, INIT_PACKET_LIST).add(packet);
+        packets.computeIfAbsent(connection, ignored -> acquirePacketList()).add(packet);
     }
 
     public void sendToTrackingPlayers(ChunkMap.TrackedEntity entity, Packet<? super ClientGamePacketListener> packet) {
@@ -148,6 +151,8 @@ public final class TrackerCtx {
         resync.addAll(other.resync);
         syncAttributes.addAll(other.syncAttributes);
         updateData.addAll(other.updateData);
+        packetListPool.addAll(other.packetListPool);
+        other.packetListPool.clear();
         return other.packets;
     }
 
@@ -384,11 +389,30 @@ public final class TrackerCtx {
         sendToTrackingPlayersAndSelf(tracker, new ClientboundUpdateAttributesPacket(e.getId(), attributes));
     }
 
-    private static void flush(ServerLevel world, Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>> packets) {
+    @SuppressWarnings("unchecked")
+    private ObjectArrayList<Packet<?>> acquirePacketList() {
+        if (packetListPool.isEmpty()) {
+            return ObjectArrayList.wrap(new Packet[16], 0);
+        }
+        return packetListPool.remove(packetListPool.size() - 1);
+    }
+
+    private void recyclePacketList(final ObjectArrayList<Packet<?>> list) {
+        if (list.elements().length <= MAX_REUSABLE_PACKET_LIST_CAPACITY
+            && packetListPool.size() < MAX_PACKET_LIST_POOL_SIZE) {
+            list.clear();
+            packetListPool.add(list);
+        }
+    }
+
+    private void flush(ServerLevel world, Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>> packets) {
         if (packets.isEmpty()) {
             return;
         }
         packets.forEach((conn, list) -> sendPacket(world, conn, list));
+        for (ObjectArrayList<Packet<?>> list : packets.values()) {
+            recyclePacketList(list);
+        }
         packets.clear();
     }
 
