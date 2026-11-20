@@ -32,7 +32,8 @@ public class FastRNG extends ConfigModule {
                 一些 JRE 不支持此功能.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
-        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.fasterRuntimeRandom;
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.fasterRuntimeRandom
+            || org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.fasterWorldgenRandom;
         enableForWorldgen = globalConfig.getBoolean(basePath() + ".enable-for-worldgen", enableForWorldgen,
             globalConfig.pickStringRegionBased(
                 """
@@ -41,6 +42,7 @@ public class FastRNG extends ConfigModule {
                 """
                     是否为世界生成启用更快的随机生成器.
                     警告: 此项会影响世界生成!!!"""));
+        enableForWorldgen |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.fasterWorldgenRandom;
         warnForSlimeChunk = globalConfig.getBoolean(basePath() + ".warn-for-slime-chunk", warnForSlimeChunk,
             globalConfig.pickStringRegionBased(
                 "Warn if you are not using legacy random source for slime chunk generation.",

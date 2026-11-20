@@ -22,6 +22,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public static boolean throttleMobSpawning = false;
     public static boolean onlyTickItemsInHand = false;
     public static boolean fasterRuntimeRandom = false;
+    public static boolean fasterWorldgenRandom = false;
 
     @Override
     public void onLoaded() {
@@ -46,8 +47,12 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 item ticks outside the main hand; custom items and plugins may depend on those ticks.
                 faster-runtime-random is an opt-in CPU optimization for runtime random calls used by
                 explosions and entity logic; it does not enable the world-generation RNG option.
-                This does not enable parallel world ticking, alternate world-generation RNG, or
-                packet optimizations that are incompatible with packet-intercepting plugins.
+                worldgen-fast-random is an opt-in world-generation CPU optimization that changes
+                the random source used by terrain and structure generation; it can change generated
+                terrain and slime-chunk locations for a seed and should be enabled only for new worlds.
+                This does not enable parallel world ticking or packet optimizations that are
+                incompatible with packet-intercepting plugins. World-generation RNG remains off
+                unless worldgen-fast-random is explicitly enabled.
                 Requires a restart when enabling asynchronous modules.""",
             """
                 为大量并发玩家启用高负载配置组合.
@@ -60,7 +65,8 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 throttle-mob-spawning 是可选的农场模式，在生物已达到限制的区块中降低重复失败的自然生成尝试；可能延迟生物农场恢复.
                 only-tick-items-in-hand 是可选的玩家吞吐模式，跳过主手之外的物品栏物品 tick；自定义物品和插件可能依赖这些 tick.
                 faster-runtime-random 是可选的运行时随机数 CPU 优化，用于爆炸和实体逻辑；不会启用世界生成随机数选项.
-                不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化.
+                worldgen-fast-random 是可选的世界生成 CPU 优化，会改变地形和结构生成使用的随机源；可能改变同一种子下的地形和史莱姆区块位置，只应对新世界启用.
+                默认不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化；只有明确启用 worldgen-fast-random 才会改变世界生成随机数.
                 启用异步模块后需要重启服务器.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
@@ -70,6 +76,10 @@ public final class AsyncHighScaleProfile extends ConfigModule {
         throttleMobSpawning = enabled && globalConfig.getBoolean(basePath() + ".throttle-mob-spawning", throttleMobSpawning);
         onlyTickItemsInHand = enabled && globalConfig.getBoolean(basePath() + ".only-tick-items-in-hand", onlyTickItemsInHand);
         fasterRuntimeRandom = enabled && globalConfig.getBoolean(basePath() + ".faster-runtime-random", fasterRuntimeRandom);
+        fasterWorldgenRandom = enabled && globalConfig.getBoolean(basePath() + ".worldgen-fast-random", fasterWorldgenRandom,
+            globalConfig.pickStringRegionBased(
+                "Changes the random source used by world generation; use only for new worlds.",
+                "改变世界生成使用的随机源；只应对新世界启用."));
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
         }
