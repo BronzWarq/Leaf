@@ -24,6 +24,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public static boolean fasterRuntimeRandom = false;
     public static boolean fasterWorldgenRandom = false;
     public static boolean protectWeakProjectiles = false;
+    public static boolean reuseRandomTickBlockPos = false;
 
     @Override
     public void onLoaded() {
@@ -54,6 +55,8 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 protect-weak-projectiles is an opt-in elytra/firework safety mode that prevents
                 projectiles from moving into entity-unticking chunks; a rocket can be discarded at
                 an unloaded boundary instead of forcing more chunk work.
+                reuse-random-tick-block-pos is an opt-in allocation reduction for random ticks;
+                plugins or blocks that retain the provided position may observe the reused object.
                 This does not enable parallel world ticking or packet optimizations that are
                 incompatible with packet-intercepting plugins. World-generation RNG remains off
                 unless worldgen-fast-random is explicitly enabled.
@@ -71,6 +74,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 faster-runtime-random 是可选的运行时随机数 CPU 优化，用于爆炸和实体逻辑；不会启用世界生成随机数选项.
                 worldgen-fast-random 是可选的世界生成 CPU 优化，会改变地形和结构生成使用的随机源；可能改变同一种子下的地形和史莱姆区块位置，只应对新世界启用.
                 protect-weak-projectiles 是可选的鞘翅/烟花保护模式，阻止弹射物进入实体未 tick 的区块；火箭可能在未加载边界被移除，而不是继续增加区块工作.
+                reuse-random-tick-block-pos 是可选的 random tick 分配优化；保存传入位置的插件或方块可能观察到复用的对象.
                 默认不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化；只有明确启用 worldgen-fast-random 才会改变世界生成随机数.
                 启用异步模块后需要重启服务器.""");
 
@@ -89,6 +93,10 @@ public final class AsyncHighScaleProfile extends ConfigModule {
             globalConfig.pickStringRegionBased(
                 "Prevents projectiles from entering weak loaded chunks; fireworks may be discarded at an unloaded boundary.",
                 "阻止弹射物进入弱加载区块；烟花可能在未加载边界被移除."));
+        reuseRandomTickBlockPos = enabled && globalConfig.getBoolean(basePath() + ".reuse-random-tick-block-pos", reuseRandomTickBlockPos,
+            globalConfig.pickStringRegionBased(
+                "Reuses the random-tick BlockPos object; disable if plugins retain the supplied position.",
+                "复用 random tick 的 BlockPos 对象；如果插件保存传入位置请关闭."));
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
         }

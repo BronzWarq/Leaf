@@ -25,5 +25,6 @@ public class MutableBlockPos extends ConfigModule {
                     实验性功能
                     复用 BlockPos 以略微减少内存分配，提升 random ticking 的性能.
                     可能与某些插件或操作冲突，如出现位置异常请关闭."""));
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.reuseRandomTickBlockPos;
     }
 }
