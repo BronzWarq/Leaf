@@ -27,7 +27,7 @@ public final class AsyncPath extends Path {
     /**
      * A list of positions that this path could path towards
      */
-    private final Set<BlockPos> positions;
+    private @Nullable Set<BlockPos> positions;
 
     private @Nullable Function<PathFinder, Path> pathFn;
 
@@ -98,7 +98,8 @@ public final class AsyncPath extends Path {
      * @return true if we are processing the same positions
      */
     public boolean hasSameProcessingPositions(final Set<BlockPos> positions) {
-        return this.positions.equals(positions);
+        final Set<BlockPos> processingPositions = this.positions;
+        return processingPositions != null && processingPositions.equals(positions);
     }
 
     public void process() {
@@ -130,6 +131,7 @@ public final class AsyncPath extends Path {
         if (debugData != null) {
             this.setDebug(debugData.openSet(), debugData.closedSet(), debugData.targetNodes());
         }
+        this.positions = null;
         this.pathFn = null;
         this.ready = true;
         for (Consumer<Path> consumer : this.postProcessing) {
