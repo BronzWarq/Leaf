@@ -25,6 +25,7 @@ public class ThrottleNaturalMobSpawning extends ConfigModule {
             `spawn-chance` 的有效范围为 0.0 到 100.0.
             达到生成限制时, 失败计数器不会增加.""");
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.throttleMobSpawning;
         MobCategory[] categories = NaturalSpawner.SPAWNING_CATEGORIES;
         failedAttempts = new long[categories.length];
         spawnChance = new int[categories.length];
