@@ -32,5 +32,7 @@ public class PreventMoveIntoWeakLoadedChunks extends ConfigModule {
             "Prevents projectiles from moving into weak loaded chunks.",
             "阻止弹射物进入弱加载区块。"
         ));
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.protectWeakProjectiles;
+        projectiles |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.protectWeakProjectiles;
     }
 }
