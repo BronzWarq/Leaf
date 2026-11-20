@@ -18,6 +18,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public static boolean enabled = false;
     public static boolean skipPrimedTntSaves = false;
     public static boolean optimizeNonFlushPacketSending = false;
+    public static boolean sleepingBlockEntities = false;
 
     @Override
     public void onLoaded() {
@@ -34,6 +35,8 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 primed TNT when chunks unload; it can discard active TNT on unload/restart.
                 optimize-non-flush-packets is an opt-in network mode and is incompatible with
                 ProtocolLib and plugins that intercept packet scheduling.
+                sleeping-block-entities is an opt-in farm mode that sleeps inactive hoppers,
+                containers, furnaces, and supported block entities until their state changes.
                 This does not enable parallel world ticking, alternate world-generation RNG, or
                 packet optimizations that are incompatible with packet-intercepting plugins.
                 Requires a restart when enabling asynchronous modules.""",
@@ -44,12 +47,14 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 正式使用前请测试插件和玩法.
                 skip-primed-tnt-saves 是 TNT 高负载模式的可选开关，区块卸载时不保存已激活的 TNT；卸载或重启可能丢弃尚未爆炸的 TNT.
                 optimize-non-flush-packets 是可选网络模式，与 ProtocolLib 和拦截数据包调度的插件不兼容.
+                sleeping-block-entities 是可选的农场模式，在状态变化前暂停不活跃的漏斗、容器、熔炉和其他受支持的方块实体.
                 不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化.
                 启用异步模块后需要重启服务器.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
         skipPrimedTntSaves = enabled && globalConfig.getBoolean(basePath() + ".skip-primed-tnt-saves", skipPrimedTntSaves);
         optimizeNonFlushPacketSending = enabled && globalConfig.getBoolean(basePath() + ".optimize-non-flush-packets", optimizeNonFlushPacketSending);
+        sleepingBlockEntities = enabled && globalConfig.getBoolean(basePath() + ".sleeping-block-entities", sleepingBlockEntities);
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
         }

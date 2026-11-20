@@ -21,5 +21,6 @@ public class SleepingBlockEntity extends ConfigModule {
         sleepingBlockEntityInitialized = true;
 
         enabled = globalConfig.getBoolean(basePath() + ".sleeping-block-entity", enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.sleepingBlockEntities;
     }
 }
