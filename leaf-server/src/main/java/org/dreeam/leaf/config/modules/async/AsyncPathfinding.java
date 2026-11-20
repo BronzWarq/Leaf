@@ -47,6 +47,13 @@ public class AsyncPathfinding extends ConfigModule {
         if (asyncPathfindingMaxThreads <= 0) {
             asyncPathfindingMaxThreads = Math.max(availableProcessors / 4, 1);
         }
+        final int maxWorkerThreads = Math.max(availableProcessors, 1);
+        if (asyncPathfindingMaxThreads > maxWorkerThreads) {
+            LeafConfig.LOGGER.warn("Async pathfinding requested {} threads, clamping to {} CPU workers.",
+                asyncPathfindingMaxThreads, maxWorkerThreads);
+            asyncPathfindingMaxThreads = maxWorkerThreads;
+        }
+        asyncPathfindingKeepalive = Math.max(asyncPathfindingKeepalive, 1);
 
         if (!enabled) {
             asyncPathfindingMaxThreads = 0;

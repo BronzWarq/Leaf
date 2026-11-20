@@ -46,6 +46,12 @@ public class MultithreadedTracker extends ConfigModule {
         if (threads <= 0) {
             threads = Math.min(Runtime.getRuntime().availableProcessors() / 2, 4);
         }
+        final int maxWorkerThreads = Math.max(Runtime.getRuntime().availableProcessors(), 1);
+        if (threads > maxWorkerThreads) {
+            LeafConfig.LOGGER.warn("Async entity tracker requested {} threads, clamping to {} CPU workers.",
+                threads, maxWorkerThreads);
+            threads = maxWorkerThreads;
+        }
         threads = Math.max(threads, 1);
 
         if (enabled) {
