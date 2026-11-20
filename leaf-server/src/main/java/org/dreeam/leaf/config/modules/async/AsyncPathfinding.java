@@ -23,11 +23,13 @@ public class AsyncPathfinding extends ConfigModule {
         globalConfig.addCommentRegionBased(basePath() + ".reject-policy", """
                 The policy to use when the queue is full and a new task is submitted.
                 FLUSH_ALL: All pending tasks will be run on server thread.
-                CALLER_RUNS: Newly submitted task will be run on server thread.""",
+                CALLER_RUNS: Newly submitted task will be run on server thread.
+                High-scale compatibility mode forces CALLER_RUNS to avoid draining the whole backlog in one tick.""",
             """
                 当队列满时, 新提交的任务将使用以下策略处理.
                 FLUSH_ALL: 所有等待中的任务都将在主线程上运行.
-                CALLER_RUNS: 新提交的任务将在主线程上运行."""
+                CALLER_RUNS: 新提交的任务将在主线程上运行.
+                高负载兼容模式会强制使用 CALLER_RUNS，避免单个 tick 执行整个等待队列."""
         );
         if (asyncPathfindingInitialized) {
             globalConfig.getConfigSection(basePath());
@@ -59,6 +61,11 @@ public class AsyncPathfinding extends ConfigModule {
                 ? PathfindTaskRejectPolicy.FLUSH_ALL.toString()
                 : PathfindTaskRejectPolicy.CALLER_RUNS.toString())
         );
+        if (AsyncHighScaleProfile.enabled && AsyncHighScaleProfile.compatibilityMode
+            && asyncPathfindingRejectPolicy != PathfindTaskRejectPolicy.CALLER_RUNS) {
+            LeafConfig.LOGGER.info("High-scale compatibility mode is forcing CALLER_RUNS for async pathfinding backpressure.");
+            asyncPathfindingRejectPolicy = PathfindTaskRejectPolicy.CALLER_RUNS;
+        }
 
         if (enabled) {
             LeafConfig.LOGGER.info("Using {} threads for Async Pathfinding", asyncPathfindingMaxThreads);

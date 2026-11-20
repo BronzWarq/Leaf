@@ -33,6 +33,9 @@ public final class MetricsCommand extends PermissionedLeafSubcommand {
         sender.sendMessage(Component.text("  pathfinding: submitted=" + snapshot.pathSubmitted()
             + ", rejected=" + snapshot.pathRejected()
             + ", queue-peak=" + snapshot.pathQueuePeak()));
+        sender.sendMessage(Component.text("  mob-spawn: submitted=" + snapshot.mobSpawnSubmitted()
+            + ", inline=" + snapshot.mobSpawnInline()
+            + ", queue-peak=" + snapshot.mobSpawnQueuePeak()));
         sender.sendMessage(Component.text("  player-save: submitted=" + snapshot.playerSavesSubmitted()
             + ", queue-peak=" + snapshot.playerSaveQueuePeak()));
         sender.sendMessage(Component.text("  tracker: ticks=" + snapshot.trackerTicks()

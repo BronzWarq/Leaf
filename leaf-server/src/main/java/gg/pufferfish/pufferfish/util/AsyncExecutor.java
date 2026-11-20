@@ -5,6 +5,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayFIFOQueue;
 import net.minecraft.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.dreeam.leaf.config.modules.async.AsyncMobSpawning;
+import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 
 import java.util.concurrent.locks.LockSupport;
 
@@ -35,9 +37,21 @@ public class AsyncExecutor implements Runnable {
     }
 
     public void submit(Runnable runnable) {
+        boolean runInline;
+        int queueSize = 0;
         synchronized (jobs) {
-            jobs.enqueue(runnable);
+            runInline = jobs.size() >= AsyncMobSpawning.maxQueuedTasks;
+            if (!runInline) {
+                jobs.enqueue(runnable);
+                queueSize = jobs.size();
+            }
         }
+        if (runInline) {
+            HighScaleMetricsRegistry.recordMobSpawnInline();
+            runJob(runnable);
+            return;
+        }
+        HighScaleMetricsRegistry.recordMobSpawnSubmitted(queueSize);
         LockSupport.unpark(thread);
     }
 
@@ -58,10 +72,18 @@ public class AsyncExecutor implements Runnable {
                     continue;
                 }
 
-                runnable.run();
+                runJob(runnable);
             } catch (Exception e) {
                 LOGGER.error("Failed to execute async job for thread {}", thread.getName(), e);
             }
+        }
+    }
+
+    private void runJob(final Runnable runnable) {
+        try {
+            runnable.run();
+        } catch (Exception e) {
+            LOGGER.error("Failed to execute async job for thread {}", thread.getName(), e);
         }
     }
 }

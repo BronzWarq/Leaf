@@ -16,6 +16,9 @@ public final class HighScaleMetricsRegistry {
     private static final LongAdder pathSubmitted = new LongAdder();
     private static final LongAdder pathRejected = new LongAdder();
     private static final AtomicInteger pathQueuePeak = new AtomicInteger();
+    private static final LongAdder mobSpawnSubmitted = new LongAdder();
+    private static final LongAdder mobSpawnInline = new LongAdder();
+    private static final AtomicInteger mobSpawnQueuePeak = new AtomicInteger();
     private static final LongAdder playerSavesSubmitted = new LongAdder();
     private static final AtomicInteger playerSaveQueuePeak = new AtomicInteger();
     private static final LongAdder trackerTicks = new LongAdder();
@@ -40,6 +43,20 @@ public final class HighScaleMetricsRegistry {
     public static void recordPathRejected() {
         if (HighScaleMetrics.enabled) {
             pathRejected.increment();
+        }
+    }
+
+    public static void recordMobSpawnSubmitted(final int queueSize) {
+        if (!HighScaleMetrics.enabled) {
+            return;
+        }
+        mobSpawnSubmitted.increment();
+        updatePeak(mobSpawnQueuePeak, queueSize);
+    }
+
+    public static void recordMobSpawnInline() {
+        if (HighScaleMetrics.enabled) {
+            mobSpawnInline.increment();
         }
     }
 
@@ -80,6 +97,9 @@ public final class HighScaleMetricsRegistry {
             pathSubmitted.sum(),
             pathRejected.sum(),
             pathQueuePeak.get(),
+            mobSpawnSubmitted.sum(),
+            mobSpawnInline.sum(),
+            mobSpawnQueuePeak.get(),
             playerSavesSubmitted.sum(),
             playerSaveQueuePeak.get(),
             trackerTicks.sum(),
@@ -96,6 +116,9 @@ public final class HighScaleMetricsRegistry {
         pathSubmitted.reset();
         pathRejected.reset();
         pathQueuePeak.set(0);
+        mobSpawnSubmitted.reset();
+        mobSpawnInline.reset();
+        mobSpawnQueuePeak.set(0);
         playerSavesSubmitted.reset();
         playerSaveQueuePeak.set(0);
         trackerTicks.reset();
@@ -115,6 +138,9 @@ public final class HighScaleMetricsRegistry {
         long pathSubmitted,
         long pathRejected,
         int pathQueuePeak,
+        long mobSpawnSubmitted,
+        long mobSpawnInline,
+        int mobSpawnQueuePeak,
         long playerSavesSubmitted,
         int playerSaveQueuePeak,
         long trackerTicks,
