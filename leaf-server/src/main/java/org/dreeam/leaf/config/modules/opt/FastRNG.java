@@ -32,6 +32,7 @@ public class FastRNG extends ConfigModule {
                 一些 JRE 不支持此功能.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.fasterRuntimeRandom;
         enableForWorldgen = globalConfig.getBoolean(basePath() + ".enable-for-worldgen", enableForWorldgen,
             globalConfig.pickStringRegionBased(
                 """
