@@ -61,7 +61,11 @@ public final class NatureSpawnChunkMap {
     private double[] playerY = {};
     private double[] playerZ = {};
     private int[] playerIndices = {};
+    private long[] spawnCenters = {};
+    private byte[] spawnRadii = {};
     private int lastPlayerCount;
+    private boolean spawnCentersInitialized;
+    private boolean spawnCentersDirty;
     private boolean ready;
 
     private static final class LongSet extends LongOpenHashSet {
@@ -92,10 +96,8 @@ public final class NatureSpawnChunkMap {
         if (!this.ready) {
             return;
         }
-        for (final LongArrayList center : this.centersByRadius) {
-            center.clear();
-        }
-        this.set.clear();
+        // Keep the deduplicated center set for the next tick. initPlayer marks
+        // it dirty when a player, chunk center, or spawn radius changes.
         this.ready = false;
     }
 
@@ -111,8 +113,21 @@ public final class NatureSpawnChunkMap {
 
     public void tick(final ServerLevel world, final List<LevelChunk> out) {
         final int playerCount = initPlayer(world);
-        for (int index = 0; index < SIZE_RADIUS; index++) {
-            buildBfs(index);
+        if (spawnCentersDirty) {
+            set.clear();
+            for (final LongArrayList center : centersByRadius) {
+                center.clear();
+            }
+            for (int i = 0; i < playerCount; i++) {
+                final int radius = spawnRadii[i];
+                if (radius >= 0) {
+                    centersByRadius[radius].add(spawnCenters[i]);
+                }
+            }
+            for (int index = 0; index < SIZE_RADIUS; index++) {
+                buildBfs(index);
+            }
+            spawnCentersDirty = false;
         }
         buildKdTree(world.purpurConfig.mobSpawningIgnoreCreativePlayers, playerCount);
         collectSpawningChunks(world.getChunkSource().fullChunksNonSync, this.set, out);
@@ -159,27 +174,42 @@ public final class NatureSpawnChunkMap {
         final var worldPlayers = world.players();
         ensurePlayerCapacity(worldPlayers.size());
         int playerCount = 0;
+        boolean centersChanged = !spawnCentersInitialized;
         for (final ServerPlayer player : worldPlayers) {
-            players[playerCount++] = player;
+            final int index = playerCount++;
+            final boolean playerChanged = index >= lastPlayerCount || players[index] != player;
+            players[index] = player;
+            long spawnCenter = 0L;
+            byte spawnRadius = -1;
             if (player.isSpectator()) {
-                continue;
+                // Spectators do not contribute a natural-spawn center.
+            } else {
+                PlayerNaturallySpawnCreaturesEvent event = player.playerNaturallySpawnedEvent;
+                if (event != null && !event.isCancelled()) {
+                    int range = event.getSpawnRadius();
+                    if (range > MAX_RADIUS) {
+                        range = MAX_RADIUS;
+                    }
+                    if (range >= 0) {
+                        spawnCenter = player.chunkPosition().longKey();
+                        spawnRadius = (byte) range;
+                    }
+                }
             }
-            PlayerNaturallySpawnCreaturesEvent event = player.playerNaturallySpawnedEvent;
-            if (event == null || event.isCancelled()) {
-                continue;
+            if (playerChanged || spawnCenters[index] != spawnCenter || spawnRadii[index] != spawnRadius) {
+                centersChanged = true;
             }
-            int range = event.getSpawnRadius();
-            if (range > MAX_RADIUS) {
-                range = MAX_RADIUS;
-            } else if (range < 0) {
-                continue;
-            }
-            this.centersByRadius[range].add(player.chunkPosition().longKey());
+            spawnCenters[index] = spawnCenter;
+            spawnRadii[index] = spawnRadius;
         }
         if (lastPlayerCount > playerCount) {
             Arrays.fill(players, playerCount, lastPlayerCount, null);
+            Arrays.fill(spawnRadii, playerCount, lastPlayerCount, (byte) -1);
+            centersChanged = true;
         }
         lastPlayerCount = playerCount;
+        spawnCentersInitialized = true;
+        spawnCentersDirty = centersChanged;
         return playerCount;
     }
 
@@ -213,6 +243,8 @@ public final class NatureSpawnChunkMap {
         playerX = Arrays.copyOf(playerX, capacity);
         playerY = Arrays.copyOf(playerY, capacity);
         playerZ = Arrays.copyOf(playerZ, capacity);
+        spawnCenters = Arrays.copyOf(spawnCenters, capacity);
+        spawnRadii = Arrays.copyOf(spawnRadii, capacity);
     }
 
     private static void collectSpawningChunks(final ChunkCache<LevelChunk> chunks,
