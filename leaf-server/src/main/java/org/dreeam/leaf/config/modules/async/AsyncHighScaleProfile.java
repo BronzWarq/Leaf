@@ -17,6 +17,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
 
     public static boolean enabled = false;
     public static boolean skipPrimedTntSaves = false;
+    public static boolean optimizeNonFlushPacketSending = false;
 
     @Override
     public void onLoaded() {
@@ -31,6 +32,8 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 Test plugins and gameplay mechanics before production use.
                 skip-primed-tnt-saves is an opt-in TNT-heavy mode that avoids persisting
                 primed TNT when chunks unload; it can discard active TNT on unload/restart.
+                optimize-non-flush-packets is an opt-in network mode and is incompatible with
+                ProtocolLib and plugins that intercept packet scheduling.
                 This does not enable parallel world ticking, alternate world-generation RNG, or
                 packet optimizations that are incompatible with packet-intercepting plugins.
                 Requires a restart when enabling asynchronous modules.""",
@@ -40,11 +43,13 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 同时启用更快的结构生成任务编排、异步玩家数据保存、优化玩家移动处理和冗余实体运动数据包过滤.
                 正式使用前请测试插件和玩法.
                 skip-primed-tnt-saves 是 TNT 高负载模式的可选开关，区块卸载时不保存已激活的 TNT；卸载或重启可能丢弃尚未爆炸的 TNT.
+                optimize-non-flush-packets 是可选网络模式，与 ProtocolLib 和拦截数据包调度的插件不兼容.
                 不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化.
                 启用异步模块后需要重启服务器.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
         skipPrimedTntSaves = enabled && globalConfig.getBoolean(basePath() + ".skip-primed-tnt-saves", skipPrimedTntSaves);
+        optimizeNonFlushPacketSending = enabled && globalConfig.getBoolean(basePath() + ".optimize-non-flush-packets", optimizeNonFlushPacketSending);
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
         }

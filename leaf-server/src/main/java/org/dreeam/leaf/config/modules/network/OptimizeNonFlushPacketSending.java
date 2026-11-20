@@ -29,5 +29,6 @@ public class OptimizeNonFlushPacketSending extends ConfigModule {
                 避免在调度数据包操作时进行昂贵的线程唤醒调用.
                 
                 需要重启服务器才能生效."""));
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.optimizeNonFlushPacketSending;
     }
 }
