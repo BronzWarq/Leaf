@@ -30,6 +30,8 @@ public final class RandomTickSystem {
     private static final long CHUNK_OFFSET_3 = 0x30000L;
 
     private final LongArrayList queue = new LongArrayList();
+    // Random ticks run on the owning world thread, so this mutable position can be reused safely.
+    private final BlockPos.MutableBlockPos mutableTickPosition = new BlockPos.MutableBlockPos();
     private long[] samples = LongArrays.EMPTY_ARRAY;
     private long[] weights = LongArrays.EMPTY_ARRAY;
 
@@ -58,7 +60,7 @@ public final class RandomTickSystem {
         final int minY = ca.spottedleaf.moonrise.common.util.WorldUtil.getMinSection(world) << 4;
         final boolean doubleTickFluids = !ca.spottedleaf.moonrise.common.PlatformHooks.get().configFixMC224294();
         if (org.dreeam.leaf.config.modules.opt.MutableBlockPos.enabled) {
-            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            final BlockPos.MutableBlockPos pos = this.mutableTickPosition;
             for (int k = 0, len = queue.size(); k < len; ++k) {
                 final long packed = q[k];
                 final LevelChunk chunk = raw[(int) (packed >>> SECTION_BITS)];
