@@ -16,6 +16,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     }
 
     public static boolean enabled = false;
+    public static boolean compatibilityMode = true;
     public static boolean skipPrimedTntSaves = false;
     public static boolean optimizeNonFlushPacketSending = false;
     public static boolean sleepingBlockEntities = false;
@@ -31,6 +32,9 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public void onLoaded() {
         globalConfig.addCommentRegionBased(basePath(), """
                 Enables the coordinated high-scale profile for servers with many concurrent players.
+                compatibility-mode is enabled by default and blocks options that can change gameplay,
+                world generation, persistence, or plugin packet behavior. Set it to false only after
+                testing the affected mechanics on a staging server.
                 This enables asynchronous entity tracking and pathfinding, spatial entity and
                 mob-spawning and biome-cache optimizations, optimized powered-rail updates,
                 faster structure-generation future sequencing, asynchronous player-data saving,
@@ -66,6 +70,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 Requires a restart when enabling asynchronous modules.""",
             """
                 为大量并发玩家启用高负载配置组合.
+                compatibility-mode 默认启用，会阻止可能改变玩法、世界生成、持久化或插件数据包行为的选项. 只有在测试服务器验证相关机制后才应将其设置为 false.
                 将启用异步实体跟踪、异步寻路、实体和生物生成空间优化、生成用生物群系缓存、优化铁轨更新，并过滤位移为零的实体移动数据包.
                 同时启用更快的结构生成任务编排、异步玩家数据保存、优化玩家移动处理和冗余实体运动数据包过滤.
                 正式使用前请测试插件和玩法.
@@ -83,30 +88,37 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 启用异步模块后需要重启服务器.""");
 
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
-        skipPrimedTntSaves = enabled && globalConfig.getBoolean(basePath() + ".skip-primed-tnt-saves", skipPrimedTntSaves);
-        optimizeNonFlushPacketSending = enabled && globalConfig.getBoolean(basePath() + ".optimize-non-flush-packets", optimizeNonFlushPacketSending);
-        sleepingBlockEntities = enabled && globalConfig.getBoolean(basePath() + ".sleeping-block-entities", sleepingBlockEntities);
-        throttleMobSpawning = enabled && globalConfig.getBoolean(basePath() + ".throttle-mob-spawning", throttleMobSpawning);
-        onlyTickItemsInHand = enabled && globalConfig.getBoolean(basePath() + ".only-tick-items-in-hand", onlyTickItemsInHand);
-        fasterRuntimeRandom = enabled && globalConfig.getBoolean(basePath() + ".faster-runtime-random", fasterRuntimeRandom);
-        fasterWorldgenRandom = enabled && globalConfig.getBoolean(basePath() + ".worldgen-fast-random", fasterWorldgenRandom,
+        compatibilityMode = globalConfig.getBoolean(basePath() + ".compatibility-mode", true,
+            globalConfig.pickStringRegionBased(
+                "Keep gameplay, world-generation, persistence, and plugin compatibility safeguards enabled.",
+                "保持玩法、世界生成、持久化和插件兼容性保护启用."));
+        skipPrimedTntSaves = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".skip-primed-tnt-saves", skipPrimedTntSaves);
+        optimizeNonFlushPacketSending = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".optimize-non-flush-packets", optimizeNonFlushPacketSending);
+        sleepingBlockEntities = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".sleeping-block-entities", sleepingBlockEntities);
+        throttleMobSpawning = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".throttle-mob-spawning", throttleMobSpawning);
+        onlyTickItemsInHand = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".only-tick-items-in-hand", onlyTickItemsInHand);
+        fasterRuntimeRandom = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".faster-runtime-random", fasterRuntimeRandom);
+        fasterWorldgenRandom = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".worldgen-fast-random", fasterWorldgenRandom,
             globalConfig.pickStringRegionBased(
                 "Changes the random source used by world generation; use only for new worlds.",
                 "改变世界生成使用的随机源；只应对新世界启用."));
-        protectWeakProjectiles = enabled && globalConfig.getBoolean(basePath() + ".protect-weak-projectiles", protectWeakProjectiles,
+        protectWeakProjectiles = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".protect-weak-projectiles", protectWeakProjectiles,
             globalConfig.pickStringRegionBased(
                 "Prevents projectiles from entering weak loaded chunks; fireworks may be discarded at an unloaded boundary.",
                 "阻止弹射物进入弱加载区块；烟花可能在未加载边界被移除."));
-        reuseRandomTickBlockPos = enabled && globalConfig.getBoolean(basePath() + ".reuse-random-tick-block-pos", reuseRandomTickBlockPos,
+        reuseRandomTickBlockPos = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".reuse-random-tick-block-pos", reuseRandomTickBlockPos,
             globalConfig.pickStringRegionBased(
                 "Reuses the random-tick BlockPos object; disable if plugins retain the supplied position.",
                 "复用 random tick 的 BlockPos 对象；如果插件保存传入位置请关闭."));
-        onlyPlayerPushable = enabled && globalConfig.getBoolean(basePath() + ".only-player-pushable", onlyPlayerPushable,
+        onlyPlayerPushable = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".only-player-pushable", onlyPlayerPushable,
             globalConfig.pickStringRegionBased(
                 "Restricts entity pushing to players; mob-to-mob pushing farms will behave differently.",
                 "将实体推动限制为玩家；生物之间相互推动的农场行为会改变."));
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
+            if (!compatibilityMode) {
+                LOGGER.warn("High-scale compatibility mode is disabled; gameplay, world-generation, persistence, and plugin compatibility changes are allowed.");
+            }
         }
     }
 }
