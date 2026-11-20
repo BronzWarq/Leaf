@@ -31,6 +31,10 @@ public final class DespawnMap implements Consumer<Entity> {
     private double[] playerY = {};
     private double[] playerZ = {};
     private int[] playerIndices = {};
+    private ServerPlayer[] playerEntities = {};
+    private int lastPlayerCount;
+    private boolean playerCacheInitialized;
+    private boolean lastIgnoreCreativePlayers;
     private boolean difficultyIsPeaceful = true;
 
     public boolean tick(final ServerLevel world, final EntityTickList entityTickList) {
@@ -78,21 +82,42 @@ public final class DespawnMap implements Consumer<Entity> {
         final var worldPlayers = world.players();
         ensurePlayerCapacity(worldPlayers.size());
         int i = 0;
+        boolean playerTreeChanged = !playerCacheInitialized
+            || this.lastIgnoreCreativePlayers != world.purpurConfig.mobSpawningIgnoreCreativePlayers;
         for (final ServerPlayer p : worldPlayers) {
             if (EntitySelector.PLAYER_AFFECTS_SPAWNING.test(p)) {
-                playerX[i] = p.getX();
-                playerY[i] = p.getY();
-                playerZ[i] = p.getZ();
+                final double x = p.getX();
+                final double y = p.getY();
+                final double z = p.getZ();
+                if (i >= lastPlayerCount || playerEntities[i] != p
+                    || playerX[i] != x || playerY[i] != y || playerZ[i] != z) {
+                    playerTreeChanged = true;
+                }
+                playerEntities[i] = p;
+                playerX[i] = x;
+                playerY[i] = y;
+                playerZ[i] = z;
                 i++;
             }
         }
-        if (playerIndices.length < i) {
-            playerIndices = Arrays.copyOf(playerIndices, Math.max(i, Math.max(playerIndices.length << 1, 16)));
+        if (lastPlayerCount != i) {
+            playerTreeChanged = true;
         }
-        coordinates[0] = playerX;
-        coordinates[1] = playerY;
-        coordinates[2] = playerZ;
-        tree.build(coordinates, playerIndices, i);
+        if (lastPlayerCount > i) {
+            Arrays.fill(playerEntities, i, lastPlayerCount, null);
+        }
+        lastPlayerCount = i;
+        playerCacheInitialized = true;
+        lastIgnoreCreativePlayers = world.purpurConfig.mobSpawningIgnoreCreativePlayers;
+        if (playerTreeChanged) {
+            if (playerIndices.length < i) {
+                playerIndices = Arrays.copyOf(playerIndices, Math.max(i, Math.max(playerIndices.length << 1, 16)));
+            }
+            coordinates[0] = playerX;
+            coordinates[1] = playerY;
+            coordinates[2] = playerZ;
+            tree.build(coordinates, playerIndices, i);
+        }
         entityTickList.forEach(this);
         return true;
     }
@@ -105,6 +130,7 @@ public final class DespawnMap implements Consumer<Entity> {
         playerX = Arrays.copyOf(playerX, capacity);
         playerY = Arrays.copyOf(playerY, capacity);
         playerZ = Arrays.copyOf(playerZ, capacity);
+        playerEntities = Arrays.copyOf(playerEntities, capacity);
     }
 
     private boolean checkDespawn(final Entity entity) {
