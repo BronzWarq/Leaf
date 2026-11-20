@@ -58,7 +58,10 @@ public final class AsyncPath extends Path {
         AsyncPathProcessor.queue(() -> {
             synchronized (finder) {
                 if (this.ret == null) {
-                    this.ret = pathFn.apply(finder);
+                    final Path result = pathFn.apply(finder);
+                    // Release the captured pathfinding state before the main thread observes the result.
+                    this.pathFn = null;
+                    this.ret = result;
                 }
             }
         });
