@@ -22,6 +22,7 @@ public class DontSaveEntity extends ConfigModule {
                 """
                     区块卸载时不保存掉落的方块和激活的 TNT,
                     可以避免在玩家掉线时机器被炸毁."""));
+        dontSavePrimedTNT |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.skipPrimedTntSaves;
         dontSaveFallingBlock = globalConfig.getBoolean(basePath() + ".dont-save-falling-block", dontSaveFallingBlock);
     }
 }
