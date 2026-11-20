@@ -35,6 +35,13 @@ public final class EntityActivation {
     private double[] playerY = {};
     private double[] playerZ = {};
     private int[] playerIndices = {};
+    private ServerPlayer[] queryPlayers = EMPTY_PLAYERS;
+    private AABB[] queryBoundingBoxes = {};
+    private AABB[] queryBoxes = {};
+    private int queryPlayerCount;
+    private int queryMaxRange;
+    private double queryWorldHeight;
+    private boolean queryBoxCacheInitialized;
     private int lastPlayerCount;
     private boolean playerTreeInitialized;
     private boolean lastDab;
@@ -199,22 +206,54 @@ public final class EntityActivation {
     }
 
     private void ensurePlayerCapacity(final int required) {
-        if (players.length >= required) {
+        final int currentCapacity = Math.max(
+            Math.max(players.length, queryPlayers.length),
+            Math.max(queryBoundingBoxes.length, queryBoxes.length)
+        );
+        if (players.length >= required
+            && queryPlayers.length >= required
+            && queryBoundingBoxes.length >= required
+            && queryBoxes.length >= required) {
             return;
         }
-        final int capacity = Math.max(required, Math.max(players.length << 1, 16));
+        final int capacity = Math.max(required, Math.max(currentCapacity << 1, 16));
         players = Arrays.copyOf(players, capacity);
         playerX = Arrays.copyOf(playerX, capacity);
         playerY = Arrays.copyOf(playerY, capacity);
         playerZ = Arrays.copyOf(playerZ, capacity);
+        queryPlayers = Arrays.copyOf(queryPlayers, capacity);
+        queryBoundingBoxes = Arrays.copyOf(queryBoundingBoxes, capacity);
+        queryBoxes = Arrays.copyOf(queryBoxes, capacity);
     }
 
-    private static void getEntities(ServerLevel world, ServerPlayer[] players, int playerSize, int maxRange, double worldHeight, EntityLookup lookup, LongOpenHashSet chunks, ObjectArrayList<Entity> entities) {
+    private void getEntities(ServerLevel world, ServerPlayer[] players, int playerSize, int maxRange, double worldHeight, EntityLookup lookup, LongOpenHashSet chunks, ObjectArrayList<Entity> entities) {
+        final boolean queryParametersChanged = !queryBoxCacheInitialized
+            || queryPlayerCount != playerSize
+            || queryMaxRange != maxRange
+            || queryWorldHeight != worldHeight;
         for (int k = 0; k < playerSize; k++) {
             final ServerPlayer player = players[k];
-            final AABB box = player.getBoundingBox().inflate(maxRange, worldHeight, maxRange);
+            final AABB currentBoundingBox = player.getBoundingBox();
+            final AABB box;
+            if (!queryParametersChanged && queryPlayers[k] == player && queryBoundingBoxes[k] == currentBoundingBox) {
+                box = queryBoxes[k];
+            } else {
+                box = currentBoundingBox.inflate(maxRange, worldHeight, maxRange);
+                queryPlayers[k] = player;
+                queryBoundingBoxes[k] = currentBoundingBox;
+                queryBoxes[k] = box;
+            }
             lookup.leaf$getEntities(box, chunks, entities);
             ca.spottedleaf.moonrise.common.PlatformHooks.get().addToGetEntities(world, null, box, null, entities);
         }
+        if (queryPlayerCount > playerSize) {
+            Arrays.fill(queryPlayers, playerSize, queryPlayerCount, null);
+            Arrays.fill(queryBoundingBoxes, playerSize, queryPlayerCount, null);
+            Arrays.fill(queryBoxes, playerSize, queryPlayerCount, null);
+        }
+        queryPlayerCount = playerSize;
+        queryMaxRange = maxRange;
+        queryWorldHeight = worldHeight;
+        queryBoxCacheInitialized = true;
     }
 }
