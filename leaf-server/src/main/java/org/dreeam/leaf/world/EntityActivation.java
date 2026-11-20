@@ -126,6 +126,13 @@ public final class EntityActivation {
         lastPlayerCount = playerSize;
 
         if (playerSize == 0) {
+            if (queryPlayerCount != 0) {
+                Arrays.fill(queryPlayers, 0, queryPlayerCount, null);
+                Arrays.fill(queryBoundingBoxes, 0, queryPlayerCount, null);
+                Arrays.fill(queryBoxes, 0, queryPlayerCount, null);
+            }
+            queryPlayerCount = 0;
+            queryBoxCacheInitialized = false;
             entities.clear();
             chunks.clear();
             return;
