@@ -55,7 +55,7 @@ public class AsyncPathfinding extends ConfigModule {
         }
 
         asyncPathfindingRejectPolicy = PathfindTaskRejectPolicy.fromString(globalConfig.getString(basePath() + ".reject-policy",
-            availableProcessors >= 12 && asyncPathfindingQueueSize < 512
+            availableProcessors >= 12 && asyncPathfindingQueueSize < 512 && !AsyncHighScaleProfile.enabled
                 ? PathfindTaskRejectPolicy.FLUSH_ALL.toString()
                 : PathfindTaskRejectPolicy.CALLER_RUNS.toString())
         );
