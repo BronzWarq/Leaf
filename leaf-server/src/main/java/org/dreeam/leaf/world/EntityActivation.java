@@ -36,6 +36,8 @@ public final class EntityActivation {
     private double[] playerZ = {};
     private int[] playerIndices = {};
     private int lastPlayerCount;
+    private boolean playerTreeInitialized;
+    private boolean lastDab;
 
     public void activateEntities(ServerLevel world) {
         final int miscActivationRange = world.spigotConfig.miscActivationRange;
@@ -84,6 +86,7 @@ public final class EntityActivation {
         final var worldPlayers = world.players();
         ensurePlayerCapacity(worldPlayers.size());
         int playerSize = 0;
+        boolean playerTreeDirty = !playerTreeInitialized || lastDab != dab;
         for (final ServerPlayer p : worldPlayers) {
             p.activatedTick = currentTick;
             if (world.spigotConfig.ignoreSpectatorActivation && p.isSpectator()) {
@@ -92,13 +95,24 @@ public final class EntityActivation {
             if (!world.purpurConfig.idleTimeoutTickNearbyEntities && p.isAfk()) {
                 continue; // Purpur - AFK API
             }
+            final double x = p.getX();
+            final double y = p.getY();
+            final double z = p.getZ();
+            if (playerSize >= lastPlayerCount
+                || players[playerSize] != p
+                || playerX[playerSize] != x
+                || playerY[playerSize] != y
+                || playerZ[playerSize] != z) {
+                playerTreeDirty = true;
+            }
             players[playerSize] = p;
-            playerX[playerSize] = p.getX();
-            playerY[playerSize] = p.getY();
-            playerZ[playerSize] = p.getZ();
+            playerX[playerSize] = x;
+            playerY[playerSize] = y;
+            playerZ[playerSize] = z;
             playerSize++;
         }
 
+        playerTreeDirty |= lastPlayerCount != playerSize;
         if (lastPlayerCount > playerSize) {
             Arrays.fill(players, playerSize, lastPlayerCount, null);
         }
@@ -115,12 +129,16 @@ public final class EntityActivation {
         }
         coordinates2[0] = playerX;
         coordinates2[1] = playerZ;
-        kdTree2.build(coordinates2, playerIndices, playerSize);
-        if (dab) {
-            coordinates3[0] = playerX;
-            coordinates3[1] = playerY;
-            coordinates3[2] = playerZ;
-            kdTree3.build(coordinates3, playerIndices, playerSize);
+        if (playerTreeDirty) {
+            kdTree2.build(coordinates2, playerIndices, playerSize);
+            if (dab) {
+                coordinates3[0] = playerX;
+                coordinates3[1] = playerY;
+                coordinates3[2] = playerZ;
+                kdTree3.build(coordinates3, playerIndices, playerSize);
+            }
+            playerTreeInitialized = true;
+            lastDab = dab;
         }
 
         final double worldHeight = world.getHeight();
