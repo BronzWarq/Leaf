@@ -2,6 +2,7 @@ package org.dreeam.leaf.async;
 
 import net.minecraft.util.Util;
 import org.dreeam.leaf.util.queue.MpmcQueue;
+import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
@@ -35,6 +36,7 @@ public final class ThreadPool {
 
         final FutureTask<T> t = new FutureTask<>(task);
         if (!channel.send(t)) {
+            HighScaleMetricsRegistry.recordTrackerCallerRun();
             t.run();
         }
         return t;

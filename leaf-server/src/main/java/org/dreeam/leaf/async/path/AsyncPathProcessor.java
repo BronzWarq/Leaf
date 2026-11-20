@@ -6,6 +6,7 @@ import net.minecraft.world.level.pathfinder.Path;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dreeam.leaf.config.modules.async.AsyncPathfinding;
+import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -47,7 +48,13 @@ public final class AsyncPathProcessor {
     }
 
     static void queue(Runnable path) {
-        PATH_PROCESSING_EXECUTOR.execute(path);
+        final ThreadPoolExecutor executor = PATH_PROCESSING_EXECUTOR;
+        if (executor == null) {
+            path.run();
+            return;
+        }
+        executor.execute(path);
+        HighScaleMetricsRegistry.recordPathSubmitted(executor.getQueue().size());
     }
 
     /**
@@ -99,6 +106,7 @@ public final class AsyncPathProcessor {
     private static RejectedExecutionHandler getRejectedPolicy() {
         return (Runnable rejectedTask, ThreadPoolExecutor executor) -> {
             BlockingQueue<Runnable> workQueue = executor.getQueue();
+            HighScaleMetricsRegistry.recordPathRejected();
             if (!executor.isShutdown()) {
                 switch (AsyncPathfinding.asyncPathfindingRejectPolicy) {
                     case FLUSH_ALL -> {

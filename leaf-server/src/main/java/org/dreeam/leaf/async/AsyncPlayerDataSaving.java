@@ -2,6 +2,7 @@ package org.dreeam.leaf.async;
 
 import net.minecraft.util.Util;
 import org.dreeam.leaf.config.modules.async.AsyncPlayerDataSave;
+import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -44,7 +45,11 @@ public class AsyncPlayerDataSaving {
             runnable.run();
             return Optional.empty();
         } else {
-            return Optional.of(pool.submit(runnable));
+            final Future<?> future = pool.submit(runnable);
+            if (pool instanceof ThreadPoolExecutor executor) {
+                HighScaleMetricsRegistry.recordPlayerSaveSubmitted(executor.getQueue().size());
+            }
+            return Optional.of(future);
         }
     }
 }

@@ -14,6 +14,7 @@ import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.BitRandomSource;
 import net.minecraft.world.level.material.FluidState;
 import org.dreeam.leaf.config.modules.gameplay.IceAndSnowChance;
+import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 
 public final class RandomTickSystem {
     private static final long SCALE = 0x100000L;
@@ -57,6 +58,7 @@ public final class RandomTickSystem {
             sampling(random, weightsSum);
         }
         final long[] q = queue.elements();
+        HighScaleMetricsRegistry.recordRandomTick(queue.size());
         final int minY = ca.spottedleaf.moonrise.common.util.WorldUtil.getMinSection(world) << 4;
         final boolean doubleTickFluids = !ca.spottedleaf.moonrise.common.PlatformHooks.get().configFixMC224294();
         if (org.dreeam.leaf.config.modules.opt.MutableBlockPos.enabled) {

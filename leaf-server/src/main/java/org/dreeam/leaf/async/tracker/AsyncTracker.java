@@ -16,6 +16,7 @@ import org.bukkit.event.player.PlayerVelocityEvent;
 import org.dreeam.leaf.async.ThreadPool;
 import org.dreeam.leaf.config.modules.async.MultithreadedTracker;
 import org.dreeam.leaf.util.TrackerSlice;
+import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -93,6 +94,7 @@ public final class AsyncTracker {
         ThreadPool exec = Objects.requireNonNull(TRACKER_EXECUTOR);
         int min = MultithreadedTracker.minEntitiesPerTask;
         TrackerSlice[] slices = len <= exec.threadCount() * min ? slice.chunks(min) : slice.splitEvenly(exec.threadCount());
+        HighScaleMetricsRegistry.recordTrackerTick(len, slices.length);
         if (contextPool.length < slices.length) {
             contextPool = Arrays.copyOf(contextPool, slices.length);
         }
