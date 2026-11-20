@@ -17,5 +17,6 @@ public class OnlyPlayerPushable extends ConfigModule {
             "Enable to make only player pushable",
             "是否只允许玩家被实体推动"
         ));
+        enabled |= org.dreeam.leaf.config.modules.async.AsyncHighScaleProfile.onlyPlayerPushable;
     }
 }

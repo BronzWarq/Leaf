@@ -25,6 +25,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public static boolean fasterWorldgenRandom = false;
     public static boolean protectWeakProjectiles = false;
     public static boolean reuseRandomTickBlockPos = false;
+    public static boolean onlyPlayerPushable = false;
 
     @Override
     public void onLoaded() {
@@ -57,6 +58,8 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 an unloaded boundary instead of forcing more chunk work.
                 reuse-random-tick-block-pos is an opt-in allocation reduction for random ticks;
                 plugins or blocks that retain the provided position may observe the reused object.
+                only-player-pushable is an opt-in dense-farm mode that restricts entity pushing
+                to players; mob farms relying on mob-to-mob pushing will behave differently.
                 This does not enable parallel world ticking or packet optimizations that are
                 incompatible with packet-intercepting plugins. World-generation RNG remains off
                 unless worldgen-fast-random is explicitly enabled.
@@ -75,6 +78,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 worldgen-fast-random 是可选的世界生成 CPU 优化，会改变地形和结构生成使用的随机源；可能改变同一种子下的地形和史莱姆区块位置，只应对新世界启用.
                 protect-weak-projectiles 是可选的鞘翅/烟花保护模式，阻止弹射物进入实体未 tick 的区块；火箭可能在未加载边界被移除，而不是继续增加区块工作.
                 reuse-random-tick-block-pos 是可选的 random tick 分配优化；保存传入位置的插件或方块可能观察到复用的对象.
+                only-player-pushable 是可选的密集农场模式，只允许实体推动玩家；依赖生物之间相互推动的农场行为会改变.
                 默认不会启用并行世界 tick、改变世界生成随机数，也不会启用与数据包拦截插件冲突的优化；只有明确启用 worldgen-fast-random 才会改变世界生成随机数.
                 启用异步模块后需要重启服务器.""");
 
@@ -97,6 +101,10 @@ public final class AsyncHighScaleProfile extends ConfigModule {
             globalConfig.pickStringRegionBased(
                 "Reuses the random-tick BlockPos object; disable if plugins retain the supplied position.",
                 "复用 random tick 的 BlockPos 对象；如果插件保存传入位置请关闭."));
+        onlyPlayerPushable = enabled && globalConfig.getBoolean(basePath() + ".only-player-pushable", onlyPlayerPushable,
+            globalConfig.pickStringRegionBased(
+                "Restricts entity pushing to players; mob-to-mob pushing farms will behave differently.",
+                "将实体推动限制为玩家；生物之间相互推动的农场行为会改变."));
         if (enabled) {
             LOGGER.warn("High-scale profile is enabled; verify plugins and gameplay mechanics before production use.");
         }
