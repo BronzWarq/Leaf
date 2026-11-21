@@ -35,6 +35,12 @@ public class SparklyPaperParallelWorldTicking extends ConfigModule {
         threads = globalConfig.getInt(basePath() + ".threads", threads);
         if (enabled) {
             if (threads <= 0) threads = 8;
+            final int maxWorkerThreads = Math.max(Runtime.getRuntime().availableProcessors(), 1);
+            if (threads > maxWorkerThreads) {
+                LeafConfig.LOGGER.warn("Parallel world ticking requested {} threads, clamping to {} CPU workers.",
+                    threads, maxWorkerThreads);
+                threads = maxWorkerThreads;
+            }
         } else {
             threads = 0;
         }
