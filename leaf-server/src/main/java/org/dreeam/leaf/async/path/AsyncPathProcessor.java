@@ -111,7 +111,7 @@ public final class AsyncPathProcessor {
             if (executor.isShutdown()) {
                 // Do not leave an AsyncPath without a result when shutdown races
                 // with submission. The caller is already outside the worker pool.
-                rejectedTask.run();
+                runRejectedTask(rejectedTask);
             } else {
                 switch (AsyncPathfinding.asyncPathfindingRejectPolicy) {
                     case FLUSH_ALL -> {
@@ -121,12 +121,12 @@ public final class AsyncPathProcessor {
                             workQueue.drainTo(pendingTasks);
 
                             for (Runnable pendingTask : pendingTasks) {
-                                pendingTask.run();
+                                runRejectedTask(pendingTask);
                             }
                         }
-                        rejectedTask.run();
+                        runRejectedTask(rejectedTask);
                     }
-                    case CALLER_RUNS -> rejectedTask.run();
+                    case CALLER_RUNS -> runRejectedTask(rejectedTask);
                 }
             }
 
@@ -136,5 +136,13 @@ public final class AsyncPathProcessor {
                 LOGGER.warn("Async pathfinding processor is busy! Pathfinding tasks will be treated as policy defined in config. Increasing max-threads in Leaf config may help.");
             }
         };
+    }
+
+    private static void runRejectedTask(final Runnable task) {
+        try {
+            task.run();
+        } catch (final RuntimeException exception) {
+            LOGGER.error("Failed to execute rejected async pathfinding task", exception);
+        }
     }
 }
