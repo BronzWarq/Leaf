@@ -47,18 +47,20 @@ public final class AsyncPath extends Path {
      */
     private boolean canReach = true;
     private final PathFinder finder;
+    private final BlockPos failureTarget;
 
     public AsyncPath(PathFinder finder, List<Node> emptyNodeList, Set<BlockPos> positions, Function<PathFinder, Path> pathFn) {
         super(emptyNodeList, BlockPos.ZERO, false);
 
         this.finder = finder;
+        this.failureTarget = positions.isEmpty() ? BlockPos.ZERO : positions.iterator().next();
         this.positions = positions;
         this.pathFn = pathFn;
 
         AsyncPathProcessor.queue(() -> {
             synchronized (finder) {
                 if (this.ret == null) {
-                    final Path result = pathFn.apply(finder);
+                    final Path result = this.calculatePath();
                     // Release the captured pathfinding state before the main thread observes the result.
                     this.pathFn = null;
                     this.ret = result;
@@ -110,11 +112,20 @@ public final class AsyncPath extends Path {
         if (ret == null) {
             synchronized (finder) {
                 if ((ret = this.ret) == null) {
-                    ret = (this.ret = Objects.requireNonNull(pathFn).apply(finder));
+                    ret = (this.ret = this.calculatePath());
                 }
             }
         }
         complete(ret);
+    }
+
+    private Path calculatePath() {
+        try {
+            return Objects.requireNonNull(Objects.requireNonNull(this.pathFn).apply(this.finder));
+        } catch (RuntimeException exception) {
+            AsyncPathProcessor.LOGGER.error("Asynchronous path calculation failed", exception);
+            return new Path(List.of(), this.failureTarget, false);
+        }
     }
 
     /// not [#ready]
