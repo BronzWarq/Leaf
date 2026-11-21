@@ -18,6 +18,7 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
     private final ScheduledFuture<?> flusherChecker;
     private final Executor ioWorkerPool;
     private final long flushOfWriteTimeoutMs;
+    private volatile boolean shuttingDown;
 
     public BufferedLinearRegionFileFlusher(int nIoThreads, long scanInterval, long flushOfWriteTimeoutMs) {
         Validate.isTrue(nIoThreads > 0, "Number of I/O threads must > 0!");
@@ -38,9 +39,15 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
     }
 
     public void shutdown() {
-        this.flusherChecker.cancel(false);
+        synchronized (this) {
+            if (this.shuttingDown) {
+                return;
+            }
+            this.shuttingDown = true;
+            this.flusherChecker.cancel(false);
+        }
 
-        this.forceFlushAll();
+        this.forceFlushAll(true);
 
         ((ExecutorService) this.ioWorkerPool).shutdown();
         for (; ; ) {
@@ -56,9 +63,16 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
     }
 
     public void forceFlushAll() {
+        this.forceFlushAll(false);
+    }
+
+    private void forceFlushAll(final boolean allowDuringShutdown) {
         final BufferedLinearRegionFile[] copied;
 
         synchronized (this) {
+            if (this.shuttingDown && !allowDuringShutdown) {
+                return;
+            }
             copied = this.inManagement.toArray(new BufferedLinearRegionFile[0]);
         }
 
@@ -88,18 +102,21 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
                 continue;
             }
 
-            this.ioWorkerPool.execute(() -> {
+            this.submitIoTask(() -> {
                 try {
                     file.syncIfNeeded();
                 } catch (IOException e) {
                     logger.error("Failed to sync master file: ", e);
                 }
-            });
+            }, allowDuringShutdown);
         }
     }
 
     @Override
     public void run() {
+        if (this.shuttingDown) {
+            return;
+        }
         final long currentNanos = System.nanoTime();
         final BufferedLinearRegionFile[] copied;
 
@@ -143,13 +160,26 @@ public class BufferedLinearRegionFileFlusher implements Runnable {
                     continue;
                 }
 
-                this.ioWorkerPool.execute(() -> {
+                this.submitIoTask(() -> {
                     try {
                         file.syncIfNeeded();
                     } catch (IOException e) {
                         logger.error("Failed to sync master file: ", e);
                     }
-                });
+                }, false);
+            }
+        }
+    }
+
+    private void submitIoTask(final Runnable task, final boolean allowDuringShutdown) {
+        synchronized (this) {
+            if (this.shuttingDown && !allowDuringShutdown) {
+                return;
+            }
+            try {
+                this.ioWorkerPool.execute(task);
+            } catch (RejectedExecutionException exception) {
+                logger.debug("Skipped buffered region file I/O task during executor shutdown", exception);
             }
         }
     }
