@@ -108,7 +108,11 @@ public final class AsyncPathProcessor {
         return (Runnable rejectedTask, ThreadPoolExecutor executor) -> {
             BlockingQueue<Runnable> workQueue = executor.getQueue();
             HighScaleMetricsRegistry.recordPathRejected();
-            if (!executor.isShutdown()) {
+            if (executor.isShutdown()) {
+                // Do not leave an AsyncPath without a result when shutdown races
+                // with submission. The caller is already outside the worker pool.
+                rejectedTask.run();
+            } else {
                 switch (AsyncPathfinding.asyncPathfindingRejectPolicy) {
                     case FLUSH_ALL -> {
                         if (!workQueue.isEmpty()) {
