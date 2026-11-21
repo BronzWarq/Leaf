@@ -11,6 +11,7 @@ import java.util.concurrent.locks.LockSupport;
 public final class ThreadPool {
     private final Thread[] threads;
     private final MpmcQueue<Runnable> channel;
+    private final Object lifecycleLock = new Object();
     private volatile boolean shutdown = false;
 
     public ThreadPool(final int numThreads, final int queue, final String prefix) {
@@ -30,12 +31,16 @@ public final class ThreadPool {
     }
 
     public <T> FutureTask<T> submitOrRun(final Callable<T> task) {
-        if (shutdown) {
-            throw new IllegalStateException();
+        final FutureTask<T> t = new FutureTask<>(task);
+        final boolean runInline;
+        synchronized (lifecycleLock) {
+            if (shutdown) {
+                throw new IllegalStateException();
+            }
+            runInline = !channel.send(t);
         }
 
-        final FutureTask<T> t = new FutureTask<>(task);
-        if (!channel.send(t)) {
+        if (runInline) {
             HighScaleMetricsRegistry.recordTrackerCallerRun();
             t.run();
         }
@@ -50,7 +55,9 @@ public final class ThreadPool {
     }
 
     public void shutdown() {
-        shutdown = true;
+        synchronized (lifecycleLock) {
+            shutdown = true;
+        }
         for (final Thread thread : threads) {
             LockSupport.unpark(thread);
         }
