@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:22:51 +0000
+Subject: [PATCH] Apply completed path targets before navigation assignment
+
+
+diff --git a/net/minecraft/world/entity/ai/navigation/PathNavigation.java b/net/minecraft/world/entity/ai/navigation/PathNavigation.java
+index c3897945c6282a69de6d55d8c9982558a7514701..dd0550c6233ca6bf0ff81e79c36001938ec82ca5 100644
+--- a/net/minecraft/world/entity/ai/navigation/PathNavigation.java
++++ b/net/minecraft/world/entity/ai/navigation/PathNavigation.java
+@@ -206,16 +206,20 @@ public abstract class PathNavigation {
+             // assign early a target position. most calls will only have 1 position
+             if (!targets.isEmpty()) this.targetPos = targets.iterator().next();
+ 
+-            org.dreeam.leaf.async.path.AsyncPathProcessor.awaitProcessing(path, processedPath -> {
+-                // check that processing didn't take so long that we calculated a new path
+-                if (processedPath != this.path) return;
+-
+-                if (processedPath != null && processedPath.getTarget() != null) {
++            if (path instanceof org.dreeam.leaf.async.path.AsyncPath asyncPath && !asyncPath.isProcessed()) {
++                asyncPath.schedulePostProcessing(processedPath -> {
++                    // The navigation may have moved on while this path was computed.
++                    if (processedPath != this.path) return;
+                     this.targetPos = processedPath.getTarget();
+                     this.reachRange = reachRange;
+                     this.resetStuckTimeout();
+-                }
+-            });
++                });
++            } else if (path != null && path.getTarget() != null) {
++                // A completed path has not yet been assigned to this.path by the caller.
++                this.targetPos = path.getTarget();
++                this.reachRange = reachRange;
++                this.resetStuckTimeout();
++            }
+         } else {
+             // Kaiiju end - petal - async path processing
+         if (path != null && path.getTarget() != null) {
