@@ -5,14 +5,15 @@ import org.dreeam.leaf.config.modules.async.AsyncPlayerDataSave;
 import org.dreeam.leaf.util.HighScaleMetricsRegistry;
 
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class AsyncPlayerDataSaving {
 
+    private static final int MAX_PENDING_SAVES = 4096;
     public static ExecutorService IO_POOL = null;
 
     private AsyncPlayerDataSaving() {
@@ -24,7 +25,7 @@ public class AsyncPlayerDataSaving {
                 1,
                 1,
                 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(),
+                new ArrayBlockingQueue<>(MAX_PENDING_SAVES),
                 new com.google.common.util.concurrent.ThreadFactoryBuilder()
                     .setPriority(Thread.NORM_PRIORITY - 2)
                     .setNameFormat("Leaf IO Thread")
