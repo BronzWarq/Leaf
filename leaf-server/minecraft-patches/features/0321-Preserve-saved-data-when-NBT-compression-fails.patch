@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:25:21 +0000
+Subject: [PATCH] Preserve saved data when NBT compression fails
+
+
+diff --git a/net/minecraft/world/level/storage/LevelStorageSource.java b/net/minecraft/world/level/storage/LevelStorageSource.java
+index 3fa69608fbc348df64d4e08baf60b7a2d455a392..0e87249ced87fcf7fedbae73fed514b046b43bae 100644
+--- a/net/minecraft/world/level/storage/LevelStorageSource.java
++++ b/net/minecraft/world/level/storage/LevelStorageSource.java
+@@ -632,6 +632,7 @@ public class LevelStorageSource {
+                 NbtIo.writeCompressed(root, nbtBytes);
+             } catch (Exception e) {
+                 LevelStorageSource.LOGGER.error("Failed to encode level {}", worldDir, e);
++                return;
+             }
+             org.dreeam.leaf.async.AsyncPlayerDataSaving.submit(() -> {
+                 try {
+diff --git a/net/minecraft/world/level/storage/PlayerDataStorage.java b/net/minecraft/world/level/storage/PlayerDataStorage.java
+index 1c1117f3e674ddd009fb1e580670e0140a22b1c0..56eb168d192bd01c4564c385672c49be89c7dbfe 100644
+--- a/net/minecraft/world/level/storage/PlayerDataStorage.java
++++ b/net/minecraft/world/level/storage/PlayerDataStorage.java
+@@ -54,6 +54,7 @@ public class PlayerDataStorage {
+             NbtIo.writeCompressed(compoundTag, nbtBytes);
+         } catch (Exception exception) {
+             LOGGER.warn("Failed to encode player data for {}", stringId, exception);
++            return;
+         }
+         lockFor(uniqueId, playerName);
+         synchronized (PlayerDataStorage.this) {

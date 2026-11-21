@@ -226,6 +226,19 @@ public final class AsyncTracker {
         } catch (final ExecutionException e) {
             throw new RuntimeException(e);
         } finally {
+            // Even when one task fails, later tasks can still be reading the
+            // shared snapshot and capture map. Drain them before either is reused.
+            for (int i = 0; i < futureCount; i++) {
+                while (!futures[i].isDone()) {
+                    try {
+                        futures[i].get();
+                    } catch (final InterruptedException e) {
+                        interrupted = true;
+                    } catch (final ExecutionException | CancellationException e) {
+                        break;
+                    }
+                }
+            }
             Arrays.fill(packetMapPool, 0, Math.min(packetMapCount, packetMapPool.length), null);
             Arrays.fill(futures, 0, futureCount, null);
             if (interrupted) {
