@@ -7,6 +7,8 @@ import org.dreeam.leaf.config.LeafConfig;
 
 public class AsyncPathfinding extends ConfigModule {
 
+    private static final int MAX_QUEUE_SIZE = 16_384;
+
     public String basePath() {
         return ConfigCategory.ASYNC.basePath() + ".async-pathfinding";
     }
@@ -61,6 +63,11 @@ public class AsyncPathfinding extends ConfigModule {
 
         if (asyncPathfindingQueueSize <= 0) {
             asyncPathfindingQueueSize = asyncPathfindingMaxThreads * 256;
+        }
+        if (asyncPathfindingQueueSize > MAX_QUEUE_SIZE) {
+            LeafConfig.LOGGER.warn("Async pathfinding queue requested {} tasks, clamping to {} to bound retained path state.",
+                asyncPathfindingQueueSize, MAX_QUEUE_SIZE);
+            asyncPathfindingQueueSize = MAX_QUEUE_SIZE;
         }
 
         asyncPathfindingRejectPolicy = PathfindTaskRejectPolicy.fromString(globalConfig.getString(basePath() + ".reject-policy",
