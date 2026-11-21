@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 23:02:37 +0000
+Subject: [PATCH] Compress player data on the IO executor
+
+
+diff --git a/net/minecraft/world/level/storage/PlayerDataStorage.java b/net/minecraft/world/level/storage/PlayerDataStorage.java
+index dab1fc485e855e6dd6c76713fe34bd912e3a374c..d51cb74a944e99df9198d2e0eed65d84958a33dd 100644
+--- a/net/minecraft/world/level/storage/PlayerDataStorage.java
++++ b/net/minecraft/world/level/storage/PlayerDataStorage.java
+@@ -49,17 +49,25 @@ public class PlayerDataStorage {
+ 
+     // Leaf start - Async playerdata saving
+     public void save(final String playerName, final java.util.UUID uniqueId, final String stringId, final CompoundTag compoundTag) {
+-        var nbtBytes = new it.unimi.dsi.fastutil.io.FastByteArrayOutputStream(65536);
++        final CompoundTag snapshot;
+         try {
+-            NbtIo.writeCompressed(compoundTag, nbtBytes);
++            // The caller may reuse or modify the input after this method returns.
++            snapshot = compoundTag.copy();
+         } catch (Exception exception) {
+-            LOGGER.warn("Failed to encode player data for {}", stringId, exception);
++            LOGGER.warn("Failed to snapshot player data for {}", stringId, exception);
+             return;
+         }
+         lockFor(uniqueId, playerName);
+         synchronized (PlayerDataStorage.this) {
+             org.dreeam.leaf.async.AsyncPlayerDataSaving.submit(() -> {
+                 try {
++                    var nbtBytes = new it.unimi.dsi.fastutil.io.FastByteArrayOutputStream(65536);
++                    try {
++                        NbtIo.writeCompressed(snapshot, nbtBytes);
++                    } catch (Exception exception) {
++                        LOGGER.warn("Failed to encode player data for {}", stringId, exception);
++                        return;
++                    }
+                     Path playerDirPath = this.playerDir.toPath();
+                     Path tmpFile = Files.createTempFile(playerDirPath, stringId + "-", ".dat");
+                     org.apache.commons.io.FileUtils.writeByteArrayToFile(tmpFile.toFile(), nbtBytes.array, 0, nbtBytes.length, false);
