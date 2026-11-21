@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:16:26 +0000
+Subject: [PATCH] Avoid blocking on asynchronous bed searches
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/SetClosestHomeAsWalkTarget.java b/net/minecraft/world/entity/ai/behavior/SetClosestHomeAsWalkTarget.java
+index 4ba8f4502d258a72a2e6e2c62c31b59e5e8d4f49..05bfde7fcf04a79021d32e7707449a0b853a4fb1 100644
+--- a/net/minecraft/world/entity/ai/behavior/SetClosestHomeAsWalkTarget.java
++++ b/net/minecraft/world/entity/ai/behavior/SetClosestHomeAsWalkTarget.java
+@@ -50,16 +50,19 @@ public class SetClosestHomeAsWalkTarget {
+                     @Override
+                     public boolean trigger(final net.minecraft.server.level.ServerLevel level, final PathfinderMob body, final long gameTime) {
+                         if (!body.getBrain().checkMemory(MemoryModuleType.WALK_TARGET, net.minecraft.world.entity.ai.memory.MemoryStatus.VALUE_ABSENT)) {
++                            pending = null;
+                             return false;
+                         }
+                         if (!body.getBrain().checkMemory(MemoryModuleType.HOME, net.minecraft.world.entity.ai.memory.MemoryStatus.VALUE_ABSENT)) {
++                            pending = null;
+                             return false;
+                         }
+ 
+                         if (pending != null) {
+-                            pending.process();
++                            if (!pending.isProcessed()) return false;
+                             processPath(speedModifier, batchCache, lastUpdate, body, level, level.getPoiManager(), stateInt, pending);
+                             pending = null;
++                            if (!body.getBrain().checkMemory(MemoryModuleType.WALK_TARGET, net.minecraft.world.entity.ai.memory.MemoryStatus.VALUE_ABSENT)) return true;
+                         }
+ 
+                         if (level.getGameTime() - lastUpdate < RATE) {
+@@ -120,7 +123,7 @@ public class SetClosestHomeAsWalkTarget {
+         if (path != null && path.canReach()) {
+             BlockPos targetPos = path.getTarget();
+             Optional<Holder<PoiType>> type = poiManager.getType(targetPos);
+-            if (type.isPresent()) {
++            if (type.isPresent() && type.get().is(PoiTypes.HOME)) {
+                 walkTarget.getBrain().setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(targetPos, speedModifier, 1));
+                 level.debugSynchronizers().updatePoi(targetPos);
+             }
+diff --git a/net/minecraft/world/entity/ai/sensing/NearestBedSensor.java b/net/minecraft/world/entity/ai/sensing/NearestBedSensor.java
+index fca5965145d434c336990ce1ecbc54f6df740ee8..f7e36b4b6e39cdf4a50440813ea9fc3245c7b8d0 100644
+--- a/net/minecraft/world/entity/ai/sensing/NearestBedSensor.java
++++ b/net/minecraft/world/entity/ai/sensing/NearestBedSensor.java
+@@ -44,7 +44,11 @@ public class NearestBedSensor extends Sensor<Mob> {
+     protected void doTick(final ServerLevel level, final Mob body) {
+         // Kaiiju start - petal - async path processing
+         if (pending != null) {
+-            pending.process();
++            if (!body.isBaby()) {
++                pending = null;
++                return;
++            }
++            if (!pending.isProcessed()) return;
+             processPath(body, level.getPoiManager(), pending);
+             pending = null;
+         }
+@@ -96,7 +100,7 @@ public class NearestBedSensor extends Sensor<Mob> {
+         if (path != null && path.canReach()) {
+             BlockPos targetPos = path.getTarget();
+             Optional<Holder<PoiType>> type = poiManager.getType(targetPos);
+-            if (type.isPresent()) {
++            if (type.isPresent() && type.get().is(PoiTypes.HOME)) {
+                 body.getBrain().setMemory(MemoryModuleType.NEAREST_BED, targetPos);
+             }
+         } else if (this.triedCount < 5) {
