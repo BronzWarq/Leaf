@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 21:55:39 +0000
+Subject: [PATCH] Retry failed asynchronous mob spawn counts
+
+
+diff --git a/net/minecraft/server/level/ServerChunkCache.java b/net/minecraft/server/level/ServerChunkCache.java
+index cc305c6644af627d25d839e00cd7047cb21bb72d..823c2b34c880f38c636afa297c30d524b5b852ca 100644
+--- a/net/minecraft/server/level/ServerChunkCache.java
++++ b/net/minecraft/server/level/ServerChunkCache.java
+@@ -75,6 +75,7 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+     @VisibleForDebug
+     private NaturalSpawner.@Nullable SpawnState lastSpawnState;
+     private volatile NaturalSpawner.@Nullable SpawnState asyncSpawnState; // Leaf - Pufferfish - async mob spawning
++    private volatile boolean asyncSpawnCountFailed; // Leaf - allow a failed async count to be retried on the world thread
+     private boolean spawnCountPending; // Leaf - Pufferfish - async mob spawning
+     private NaturalSpawner.@Nullable AsyncSpawnCostSampler asyncSpawnCostSampler; // Leaf - Pufferfish - async mob spawning
+     // Paper start
+@@ -642,6 +643,10 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+ 
+             // Leaf start - Pufferfish - async mob spawning
+             NaturalSpawner.@Nullable SpawnState completedSpawnState = this.asyncSpawnState;
++            if (this.asyncSpawnCountFailed) {
++                this.asyncSpawnCountFailed = false;
++                this.spawnCountPending = false;
++            }
+             if (completedSpawnState != null) {
+                 this.asyncSpawnState = null;
+                 this.spawnCountPending = false;
+@@ -699,7 +704,12 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+             boolean countAllMobsForSpawning = this.level.paperConfig().entities.spawning.countAllMobsForSpawning;
+             this.spawnCountPending = true;
+             this.level.getServer().mobSpawnExecutor.submit(() -> {
+-                this.asyncSpawnState = NaturalSpawner.createStateAsync(spawnableChunkCount, entities, this.level, environmentAttributes, countAllMobsForSpawning);
++                try {
++                    this.asyncSpawnState = NaturalSpawner.createStateAsync(spawnableChunkCount, entities, this.level, environmentAttributes, countAllMobsForSpawning);
++                } catch (Exception exception) {
++                    this.asyncSpawnCountFailed = true;
++                    throw exception;
++                }
+             });
+         }
+         // Leaf end - Pufferfish - async mob spawning
