@@ -3,7 +3,7 @@ package org.dreeam.leaf.config;
 import io.papermc.paper.SparksFly;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.minecraft.util.Util;
+import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.dreeam.leaf.config.modules.misc.SentryDSN;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -57,6 +58,7 @@ public class LeafConfig {
 
     private static final String SPARK_EXTRA_CONFIG_PROPERTY =  "spark.serverconfigs.extra";
     private static final String SPARK_HIDDEN_PATHS_PROPERTY =  "spark.serverconfigs.hiddenpaths";
+    private static final AtomicBoolean RELOAD_IN_PROGRESS = new AtomicBoolean();
 
     private static LeafGlobalConfig globalConfig;
 
@@ -67,9 +69,16 @@ public class LeafConfig {
 
     /* Load & Reload */
 
-    // Reload config (async)
+    // Reload config without racing tick and async workers.
     public static CompletableFuture<Void> reloadAsync(CommandSender sender) {
-        return CompletableFuture.runAsync(() -> {
+        final CompletableFuture<Void> result = new CompletableFuture<>();
+        if (!RELOAD_IN_PROGRESS.compareAndSet(false, true)) {
+            Command.broadcastCommandMessage(sender, Component.text("Leaf config reload is already in progress.", NamedTextColor.YELLOW));
+            result.complete(null);
+            return result;
+        }
+
+        final Runnable reload = () -> {
             try {
                 long begin = System.nanoTime();
 
@@ -79,11 +88,24 @@ public class LeafConfig {
 
                 final String success = String.format("Successfully reloaded config in %sms.", (System.nanoTime() - begin) / 1_000_000);
                 Command.broadcastCommandMessage(sender, Component.text(success, NamedTextColor.GREEN));
+                result.complete(null);
             } catch (Exception e) {
                 Command.broadcastCommandMessage(sender, Component.text("Failed to reload config. See error in console!", NamedTextColor.RED));
                 LOGGER.error("Failed to reload config!", e);
+                result.completeExceptionally(e);
+            } finally {
+                RELOAD_IN_PROGRESS.set(false);
             }
-        }, Util.ioPool());
+        };
+
+        try {
+            MinecraftServer.getServer().execute(reload);
+        } catch (final RuntimeException exception) {
+            RELOAD_IN_PROGRESS.set(false);
+            result.completeExceptionally(exception);
+            LOGGER.error("Failed to schedule config reload!", exception);
+        }
+        return result;
     }
 
     // Init config
