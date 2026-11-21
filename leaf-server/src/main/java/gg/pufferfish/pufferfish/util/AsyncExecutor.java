@@ -31,7 +31,10 @@ public class AsyncExecutor implements Runnable {
     }
 
     public void join(long millis) throws InterruptedException {
-        killswitch = true;
+        synchronized (jobs) {
+            killswitch = true;
+            jobs.clear();
+        }
         LockSupport.unpark(thread);
         thread.join(millis);
     }
@@ -40,6 +43,9 @@ public class AsyncExecutor implements Runnable {
         boolean runInline;
         int queueSize = 0;
         synchronized (jobs) {
+            if (killswitch) {
+                return;
+            }
             runInline = jobs.size() >= AsyncMobSpawning.maxQueuedTasks;
             if (!runInline) {
                 jobs.enqueue(runnable);
@@ -62,6 +68,9 @@ public class AsyncExecutor implements Runnable {
                 Runnable runnable = null;
 
                 synchronized (jobs) {
+                    if (killswitch) {
+                        return;
+                    }
                     if (!jobs.isEmpty()) {
                         runnable = jobs.dequeue();
                     }
