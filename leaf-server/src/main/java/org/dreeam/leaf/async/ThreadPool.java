@@ -96,7 +96,7 @@ public final class ThreadPool {
                     Thread.yield();
                     if (channel.isEmpty()) {
                         LockSupport.park();
-                        if (Thread.interrupted()) {
+                        if (Thread.interrupted() && executor.shutdown) {
                             return;
                         }
                     }
