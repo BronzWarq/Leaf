@@ -32,8 +32,11 @@ public final class AsyncTracker {
     public static @Nullable ThreadPool TRACKER_EXECUTOR;
 
     private Future<TrackerCtx> @Nullable [] fut;
+    private int futCount;
     // One tracker owns one world; the server joins its futures before the next tick.
     private TrackerCtx @Nullable [] contextPool = {};
+    private TrackerSlice[] slicePool = {};
+    private Future<TrackerCtx>[] futurePool = newFutureArray(0);
     private Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[] packetMapPool = newPacketMapArray(0);
 
     /*
@@ -93,23 +96,33 @@ public final class AsyncTracker {
 
         ThreadPool exec = Objects.requireNonNull(TRACKER_EXECUTOR);
         int min = MultithreadedTracker.minEntitiesPerTask;
-        TrackerSlice[] slices = len <= exec.threadCount() * min ? slice.chunks(min) : slice.splitEvenly(exec.threadCount());
-        HighScaleMetricsRegistry.recordTrackerTick(len, slices.length);
-        if (contextPool.length < slices.length) {
-            contextPool = Arrays.copyOf(contextPool, slices.length);
+        long taskThreshold = (long) exec.threadCount() * min;
+        int maxSlices = len <= taskThreshold ? (len - 1) / min + 1 : exec.threadCount();
+        if (slicePool.length < maxSlices) {
+            slicePool = Arrays.copyOf(slicePool, maxSlices);
         }
-        @SuppressWarnings("unchecked")
-        Future<TrackerCtx>[] futures = new Future[slices.length];
-        for (int i = 0; i < futures.length; i++) {
+        final int sliceCount = len <= taskThreshold
+            ? slice.chunks(min, slicePool)
+            : slice.splitEvenly(exec.threadCount(), slicePool);
+        HighScaleMetricsRegistry.recordTrackerTick(len, sliceCount);
+        if (contextPool.length < sliceCount) {
+            contextPool = Arrays.copyOf(contextPool, sliceCount);
+        }
+        if (futurePool.length < sliceCount) {
+            futurePool = newFutureArray(sliceCount);
+        }
+        Future<TrackerCtx>[] futures = futurePool;
+        for (int i = 0; i < sliceCount; i++) {
             TrackerCtx context = contextPool[i];
             if (context == null) {
                 context = new TrackerCtx(world);
                 contextPool[i] = context;
             }
-            futures[i] = exec.submitOrRun(new TrackerTask(world, slices[i], cap, context));
+            futures[i] = exec.submitOrRun(new TrackerTask(world, slicePool[i], cap, context));
         }
         exec.unpark();
         this.fut = futures;
+        this.futCount = sliceCount;
     }
 
     private static void handlePlayer(final ServerLevel world) {
@@ -148,22 +161,26 @@ public final class AsyncTracker {
         if (task == null) {
             return;
         }
-        for (final Future<TrackerCtx> fut : task) {
-            if (!fut.isDone()) {
+        final int taskCount = this.futCount;
+        for (int i = 0; i < taskCount; i++) {
+            if (!task[i].isDone()) {
                 return;
             }
         }
         this.fut = null;
-        handle(task);
+        this.futCount = 0;
+        handle(task, taskCount);
     }
 
     public void onTickEnd() {
         Future<TrackerCtx>[] task = this.fut;
+        final int taskCount = this.futCount;
         this.fut = null;
+        this.futCount = 0;
         if (task == null) {
             return;
         }
-        handle(task);
+        handle(task, taskCount);
     }
 
     @SuppressWarnings("unchecked")
@@ -171,8 +188,13 @@ public final class AsyncTracker {
         return (Object2ObjectOpenHashMap<ServerPlayerConnection, ObjectArrayList<Packet<?>>>[]) new Object2ObjectOpenHashMap[length];
     }
 
-    private void handle(final Future<TrackerCtx>[] futures) {
-        final int packetMapCount = futures.length - 1;
+    @SuppressWarnings("unchecked")
+    private static Future<TrackerCtx>[] newFutureArray(final int length) {
+        return (Future<TrackerCtx>[]) new Future[length];
+    }
+
+    private void handle(final Future<TrackerCtx>[] futures, final int futureCount) {
+        final int packetMapCount = futureCount - 1;
         try {
             TrackerCtx ctx = futures[0].get();
             if (packetMapPool.length < packetMapCount) {
@@ -188,6 +210,7 @@ public final class AsyncTracker {
             throw new RuntimeException(e);
         } finally {
             Arrays.fill(packetMapPool, 0, Math.min(packetMapCount, packetMapPool.length), null);
+            Arrays.fill(futures, 0, futureCount, null);
         }
     }
 }

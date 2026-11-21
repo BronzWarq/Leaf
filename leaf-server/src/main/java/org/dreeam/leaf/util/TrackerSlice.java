@@ -13,11 +13,17 @@ public record TrackerSlice(Entity[] array, int start, int end) {
     }
 
     public TrackerSlice[] splitEvenly(final int parts) {
+        final TrackerSlice[] result = new TrackerSlice[parts];
+        splitEvenly(parts, result);
+        return result;
+    }
+
+    public int splitEvenly(final int parts, final TrackerSlice[] result) {
         if (parts == 1) {
-            return new TrackerSlice[]{this};
+            result[0] = this;
+            return 1;
         }
 
-        final TrackerSlice[] result = new TrackerSlice[parts];
         final int sliceSize = size();
         final int base = sliceSize / parts;
         final int remainder = sliceSize % parts;
@@ -28,19 +34,24 @@ public record TrackerSlice(Entity[] array, int start, int end) {
             result[i] = new TrackerSlice(array, curr, endIdx);
             curr = endIdx;
         }
-        return result;
+        return parts;
     }
 
     public TrackerSlice[] chunks(final int chunkSize) {
-        final int len = (size() + chunkSize - 1) / chunkSize;
+        final int len = size() == 0 ? 0 : (size() - 1) / chunkSize + 1;
         final TrackerSlice[] result = new TrackerSlice[len];
+        chunks(chunkSize, result);
+        return result;
+    }
 
+    public int chunks(final int chunkSize, final TrackerSlice[] result) {
+        final int len = size() == 0 ? 0 : (size() - 1) / chunkSize + 1;
         int curr = start;
         for (int i = 0; i < len; i++) {
             final int endIdx = Math.min(curr + chunkSize, end);
             result[i] = new TrackerSlice(array, curr, endIdx);
             curr = endIdx;
         }
-        return result;
+        return len;
     }
 }
