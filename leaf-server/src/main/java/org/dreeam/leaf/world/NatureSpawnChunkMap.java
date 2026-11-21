@@ -61,6 +61,10 @@ public final class NatureSpawnChunkMap {
     private double[] playerY = {};
     private double[] playerZ = {};
     private int[] playerIndices = {};
+    private ServerPlayer[] treePlayers = EMPTY_PLAYERS;
+    private int treePlayerCount;
+    private boolean playerTreeInitialized;
+    private boolean lastIgnoreCreativePlayers;
     private long[] spawnCenters = {};
     private byte[] spawnRadii = {};
     private int lastPlayerCount;
@@ -214,16 +218,34 @@ public final class NatureSpawnChunkMap {
     }
 
     private void buildKdTree(final boolean ignoreCreativePlayers, final int playerCount) {
+        boolean treeChanged = !playerTreeInitialized || lastIgnoreCreativePlayers != ignoreCreativePlayers;
         int i = 0;
         ensurePlayerCapacity(playerCount);
         for (int j = 0; j < playerCount; j++) {
             final ServerPlayer p = players[j];
             if (!p.isSpectator() && !(ignoreCreativePlayers && p.isCreative())) {
-                playerX[i] = p.getX();
-                playerY[i] = p.getY();
-                playerZ[i] = p.getZ();
+                final double x = p.getX();
+                final double y = p.getY();
+                final double z = p.getZ();
+                if (treePlayers[i] != p || playerX[i] != x || playerY[i] != y || playerZ[i] != z) {
+                    treeChanged = true;
+                }
+                treePlayers[i] = p;
+                playerX[i] = x;
+                playerY[i] = y;
+                playerZ[i] = z;
                 i++;
             }
+        }
+        if (treePlayerCount != i) {
+            treeChanged = true;
+        }
+        if (treePlayerCount > i) {
+            Arrays.fill(treePlayers, i, treePlayerCount, null);
+        }
+        treePlayerCount = i;
+        if (!treeChanged) {
+            return;
         }
         if (playerIndices.length < i) {
             playerIndices = Arrays.copyOf(playerIndices, Math.max(i, Math.max(playerIndices.length << 1, 16)));
@@ -232,17 +254,21 @@ public final class NatureSpawnChunkMap {
         coordinates[1] = playerY;
         coordinates[2] = playerZ;
         this.tree.build(coordinates, playerIndices, i);
+        playerTreeInitialized = true;
+        lastIgnoreCreativePlayers = ignoreCreativePlayers;
     }
 
     private void ensurePlayerCapacity(final int required) {
-        if (players.length >= required) {
+        if (players.length >= required && treePlayers.length >= required) {
             return;
         }
-        final int capacity = Math.max(required, Math.max(players.length << 1, 16));
+        final int currentCapacity = Math.max(players.length, treePlayers.length);
+        final int capacity = Math.max(required, Math.max(currentCapacity << 1, 16));
         players = Arrays.copyOf(players, capacity);
         playerX = Arrays.copyOf(playerX, capacity);
         playerY = Arrays.copyOf(playerY, capacity);
         playerZ = Arrays.copyOf(playerZ, capacity);
+        treePlayers = Arrays.copyOf(treePlayers, capacity);
         spawnCenters = Arrays.copyOf(spawnCenters, capacity);
         spawnRadii = Arrays.copyOf(spawnRadii, capacity);
     }
