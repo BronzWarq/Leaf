@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 23:17:35 +0000
+Subject: [PATCH] Fix secure seed command thread-local access
+
+
+diff --git a/net/minecraft/server/commands/SeedCommand.java b/net/minecraft/server/commands/SeedCommand.java
+index f99c0c95aa4519ac0ce913032788aa168f44feef..de948ea7a503c41c9fb8563da5418eb91fba1abc 100644
+--- a/net/minecraft/server/commands/SeedCommand.java
++++ b/net/minecraft/server/commands/SeedCommand.java
+@@ -16,7 +16,7 @@ public class SeedCommand {
+                 // Leaf start - Matter - Secure Seed command
+                 if (org.dreeam.leaf.config.modules.misc.SecureSeed.enabled) {
+                     su.plo.matter.Globals.setupGlobals(c.getSource().getLevel());
+-                    String seedStr = su.plo.matter.Globals.seedToString(su.plo.matter.Globals.worldSeed);
++                    String seedStr = su.plo.matter.Globals.seedToString(su.plo.matter.Globals.worldSeed.get());
+                     Component featureSeedComponent = ComponentUtils.copyOnClickText(seedStr);
+ 
+                     c.getSource().sendSuccess(() -> Component.translatable(("Feature seed: %s"), featureSeedComponent), false);
