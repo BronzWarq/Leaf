@@ -19,6 +19,7 @@ public final class AsyncHighScaleProfile extends ConfigModule {
     public static boolean compatibilityMode = true;
     public static boolean skipPrimedTntSaves = false;
     public static boolean optimizeNonFlushPacketSending = false;
+    public static boolean disableUselessParticles = false;
     public static boolean sleepingBlockEntities = false;
     public static boolean throttleMobSpawning = false;
     public static boolean onlyTickItemsInHand = false;
@@ -40,12 +41,16 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 faster structure-generation future sequencing, asynchronous player-data saving,
                 optimized player movement processing,
                 filtering of zero-delta entity movement packets, and filtering of redundant
-                entity-motion packets.
+                entity-motion packets. The optional particle reduction can suppress
+                server-side auxiliary particles that clients already reproduce locally.
                 Test plugins and gameplay mechanics before production use.
                 skip-primed-tnt-saves is an opt-in TNT-heavy mode that avoids persisting
                 primed TNT when chunks unload; it can discard active TNT on unload/restart.
                 optimize-non-flush-packets is an opt-in network mode and is incompatible with
                 ProtocolLib and plugins that intercept packet scheduling.
+                disable-useless-particles is an opt-in visual/network mode that suppresses
+                server-side sprint, splash, status, and similar auxiliary particles; clients
+                may still render their own equivalent effects.
                 sleeping-block-entities is an opt-in farm mode that sleeps inactive hoppers,
                 containers, furnaces, and supported block entities until their state changes.
                 throttle-mob-spawning is an opt-in farm mode that backs off repeated failed
@@ -73,9 +78,11 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 compatibility-mode 默认启用，会阻止可能改变玩法、世界生成、持久化或插件数据包行为的选项. 只有在测试服务器验证相关机制后才应将其设置为 false.
                 将启用异步实体跟踪、异步寻路、实体和生物生成空间优化、生成用生物群系缓存、优化铁轨更新，并过滤位移为零的实体移动数据包.
                 同时启用更快的结构生成任务编排、异步玩家数据保存、优化玩家移动处理和冗余实体运动数据包过滤.
+                可选的粒子优化可以省略客户端通常会自行生成的服务器辅助粒子.
                 正式使用前请测试插件和玩法.
                 skip-primed-tnt-saves 是 TNT 高负载模式的可选开关，区块卸载时不保存已激活的 TNT；卸载或重启可能丢弃尚未爆炸的 TNT.
                 optimize-non-flush-packets 是可选网络模式，与 ProtocolLib 和拦截数据包调度的插件不兼容.
+                disable-useless-particles 是可选视觉/网络模式，会省略服务器生成的疾跑、溅水、状态和类似辅助粒子；客户端仍可能自行显示相应效果.
                 sleeping-block-entities 是可选的农场模式，在状态变化前暂停不活跃的漏斗、容器、熔炉和其他受支持的方块实体.
                 throttle-mob-spawning 是可选的农场模式，在生物已达到限制的区块中降低重复失败的自然生成尝试；可能延迟生物农场恢复.
                 only-tick-items-in-hand 是可选的玩家吞吐模式，跳过主手之外的物品栏物品 tick；自定义物品和插件可能依赖这些 tick.
@@ -94,6 +101,10 @@ public final class AsyncHighScaleProfile extends ConfigModule {
                 "保持玩法、世界生成、持久化和插件兼容性保护启用."));
         skipPrimedTntSaves = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".skip-primed-tnt-saves", skipPrimedTntSaves);
         optimizeNonFlushPacketSending = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".optimize-non-flush-packets", optimizeNonFlushPacketSending);
+        disableUselessParticles = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".disable-useless-particles", disableUselessParticles,
+            globalConfig.pickStringRegionBased(
+                "Suppresses server-side auxiliary particles such as sprint, splash, status, and poof effects.",
+                "省略疾跑、溅水、状态和 poof 等服务器辅助粒子."));
         sleepingBlockEntities = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".sleeping-block-entities", sleepingBlockEntities);
         throttleMobSpawning = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".throttle-mob-spawning", throttleMobSpawning);
         onlyTickItemsInHand = enabled && !compatibilityMode && globalConfig.getBoolean(basePath() + ".only-tick-items-in-hand", onlyTickItemsInHand);
