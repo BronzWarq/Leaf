@@ -18,6 +18,7 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -28,7 +29,7 @@ public final class AsyncPathProcessor {
 
     private static final String THREAD_PREFIX = "Leaf Async Pathfinding";
     public static final Logger LOGGER = LogManager.getLogger(THREAD_PREFIX);
-    private static long lastWarnMillis = System.currentTimeMillis();
+    private static final AtomicLong LAST_WARN_MILLIS = new AtomicLong(System.currentTimeMillis());
     public static @Nullable ThreadPoolExecutor PATH_PROCESSING_EXECUTOR = null;
 
     public static void init() {
@@ -125,9 +126,10 @@ public final class AsyncPathProcessor {
                 }
             }
 
-            if (System.currentTimeMillis() - lastWarnMillis > 30000L) {
+            final long now = System.currentTimeMillis();
+            final long lastWarn = LAST_WARN_MILLIS.get();
+            if (now - lastWarn > 30000L && LAST_WARN_MILLIS.compareAndSet(lastWarn, now)) {
                 LOGGER.warn("Async pathfinding processor is busy! Pathfinding tasks will be treated as policy defined in config. Increasing max-threads in Leaf config may help.");
-                lastWarnMillis = System.currentTimeMillis();
             }
         };
     }
