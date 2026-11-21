@@ -12,6 +12,24 @@ public class ShutdownExecutors {
 
     public static final Logger LOGGER = LogManager.getLogger("Leaf");
 
+    public static void shutdownPlayerDataSaving() {
+        final var pool = AsyncPlayerDataSaving.IO_POOL;
+        if (pool == null) return;
+
+        LOGGER.info("Waiting for player and world data saves to complete...");
+        pool.shutdown();
+        boolean interrupted = false;
+        while (true) {
+            try {
+                if (pool.awaitTermination(10L, TimeUnit.SECONDS)) break;
+                LOGGER.warn("Still waiting for player and world data saves to complete");
+            } catch (InterruptedException ignored) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+    }
+
     public static void shutdown(MinecraftServer server) {
         if (org.dreeam.leaf.config.modules.async.SparklyPaperParallelWorldTicking.enabled) {
             for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
@@ -40,16 +58,6 @@ public class ShutdownExecutors {
             LOGGER.info("Waiting for mob spawning thread to shutdown...");
             try {
                 server.mobSpawnExecutor.join(3000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        if (AsyncPlayerDataSaving.IO_POOL != null) {
-            LOGGER.info("Waiting for player I/O executor to shutdown...");
-            AsyncPlayerDataSaving.IO_POOL.shutdown();
-            try {
-                AsyncPlayerDataSaving.IO_POOL.awaitTermination(60L, TimeUnit.SECONDS);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             }

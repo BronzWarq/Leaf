@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 23:05:16 +0000
+Subject: [PATCH] Drain async saves before unlocking the world
+
+
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index ff638fd0b45d010bcd9f9caa080b00aac0e0d03b..103dbb3112f04b76023f9f6e1fdfd744465c8a9e 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -1123,6 +1123,7 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+ 
+         this.saveAllChunks(false, true, false, true); // Paper - rewrite chunk system
+ 
++        org.dreeam.leaf.async.ShutdownExecutors.shutdownPlayerDataSaving(); // Leaf - finish saves before unlocking the world
+         this.isSaving = false;
+         this.savedDataStorage.close();
+         this.resources.close();
