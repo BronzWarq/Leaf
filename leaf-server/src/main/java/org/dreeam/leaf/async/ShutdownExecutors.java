@@ -13,6 +13,22 @@ public class ShutdownExecutors {
     public static final Logger LOGGER = LogManager.getLogger("Leaf");
 
     public static void shutdown(MinecraftServer server) {
+        if (org.dreeam.leaf.config.modules.async.SparklyPaperParallelWorldTicking.enabled) {
+            for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
+                if (level.tickExecutor == null) {
+                    continue;
+                }
+                LOGGER.info("Waiting for world tick executor {} to shutdown...", level.dimension().identifier());
+                level.tickExecutor.shutdown();
+                try {
+                    level.tickExecutor.awaitTermination(10L, TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
         if (server.mobSpawnExecutor != null && server.mobSpawnExecutor.thread.isAlive()) {
             LOGGER.info("Waiting for mob spawning thread to shutdown...");
             try {
