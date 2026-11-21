@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:15:10 +0000
+Subject: [PATCH] Validate asynchronous villager POI acquisition
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/AcquirePoi.java b/net/minecraft/world/entity/ai/behavior/AcquirePoi.java
+index 8f4a7d3539c42375a72075feb8b562a7f1438625..2b8d4176d2a875c2a2a9a2ca0037ea758ae56995 100644
+--- a/net/minecraft/world/entity/ai/behavior/AcquirePoi.java
++++ b/net/minecraft/world/entity/ai/behavior/AcquirePoi.java
+@@ -87,23 +87,31 @@ public class AcquirePoi {
+                     @Override
+                     public boolean trigger(final ServerLevel level, final PathfinderMob body, final long timestamp) {
+                         if (!body.getBrain().checkMemory(memoryToValidate, net.minecraft.world.entity.ai.memory.MemoryStatus.VALUE_ABSENT)) {
++                            pending = null;
++                            stateSet = null;
+                             return false;
+                         }
+                         if (memoryToValidate != memoryToAcquire) {
+                             if (!body.getBrain().checkMemory(memoryToAcquire, net.minecraft.world.entity.ai.memory.MemoryStatus.VALUE_ABSENT)) {
++                                pending = null;
++                                stateSet = null;
+                                 return false;
+                             }
+                         }
++                        if (onlyIfAdult && body.isBaby()) {
++                            pending = null;
++                            stateSet = null;
++                            return false;
++                        }
+                         RandomSource random = level.getRandom();
+                         if (pending != null && stateSet != null) {
+-                            pending.process();
+-                            processPath(poiType, onPoiAcquisitionEvent, batchCache, level, body, memoryToAcquire, timestamp, level.getPoiManager(), stateSet, pending, random);
++                            if (!pending.isProcessed()) return false;
++                            processPath(poiType, validPoi, onPoiAcquisitionEvent, batchCache, level, body, memoryToAcquire, timestamp, level.getPoiManager(), stateSet, pending, random);
+                             pending = null;
+                             stateSet = null;
+-                        }
+-
+-                        if (onlyIfAdult && body.isBaby()) {
+-                            return false;
++                            if (!body.getBrain().checkMemory(memoryToAcquire, net.minecraft.world.entity.ai.memory.MemoryStatus.VALUE_ABSENT)) {
++                                return true;
++                            }
+                         }
+ 
+                         if (nextScheduledStart == 0L) {
+@@ -148,7 +156,7 @@ public class AcquirePoi {
+                             this.pending = path1;
+                             this.stateSet = poiPositions;
+                         } else {
+-                            processPath(poiType, onPoiAcquisitionEvent, batchCache, level, body, memoryToAcquire, timestamp, poiManager, poiPositions, path, random);
++                            processPath(poiType, validPoi, onPoiAcquisitionEvent, batchCache, level, body, memoryToAcquire, timestamp, poiManager, poiPositions, path, random);
+                         }
+                         // Kaiiju end - petal - async path processing
+                         return true;
+@@ -159,6 +167,7 @@ public class AcquirePoi {
+     // Kaiiju start - petal - async path processing
+     // Extracted from `AcquirePoi#create`
+     private static void processPath(final Predicate<Holder<PoiType>> poiType,
++                                    final BiPredicate<ServerLevel, BlockPos> validPoi,
+                                     final Optional<Byte> onPoiAcquisitionEvent,
+                                     final Long2ObjectMap<JitteredLinearRetry> batchCache,
+                                     final ServerLevel level,
+@@ -171,13 +180,14 @@ public class AcquirePoi {
+                                     final RandomSource random) {
+         if (path != null && path.canReach()) {
+             BlockPos targetPos = path.getTarget();
+-            poiManager.getType(targetPos).ifPresent(type -> {
+-                poiManager.take(poiType, (t, poiPos) -> poiPos.equals(targetPos), targetPos, 1);
+-                walkTarget.getBrain().setMemory(memoryToAcquire, GlobalPos.of(level.dimension(), targetPos));
+-                onPoiAcquisitionEvent.ifPresent(event -> level.broadcastEntityEvent(walkTarget, event));
+-                batchCache.clear();
+-                level.debugSynchronizers().updatePoi(targetPos);
+-            });
++            if (validPoi.test(level, targetPos)) {
++                poiManager.take(poiType, (t, poiPos) -> poiPos.equals(targetPos), targetPos, 1).ifPresent(acquiredPos -> {
++                    walkTarget.getBrain().setMemory(memoryToAcquire, GlobalPos.of(level.dimension(), acquiredPos));
++                    onPoiAcquisitionEvent.ifPresent(event -> level.broadcastEntityEvent(walkTarget, event));
++                    batchCache.clear();
++                    level.debugSynchronizers().updatePoi(acquiredPos);
++                });
++            }
+         } else {
+             for (Pair<Holder<PoiType>, BlockPos> p : poiPositions) {
+                 batchCache.computeIfAbsent(p.getSecond().asLong(), key -> new AcquirePoi.JitteredLinearRetry(random, timestamp));
