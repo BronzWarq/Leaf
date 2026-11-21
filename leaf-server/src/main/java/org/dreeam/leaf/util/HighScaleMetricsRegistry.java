@@ -18,6 +18,7 @@ public final class HighScaleMetricsRegistry {
     private static final AtomicInteger pathQueuePeak = new AtomicInteger();
     private static final LongAdder mobSpawnSubmitted = new LongAdder();
     private static final LongAdder mobSpawnInline = new LongAdder();
+    private static final LongAdder mobSpawnDeferred = new LongAdder();
     private static final AtomicInteger mobSpawnQueuePeak = new AtomicInteger();
     private static final LongAdder playerSavesSubmitted = new LongAdder();
     private static final AtomicInteger playerSaveQueuePeak = new AtomicInteger();
@@ -60,6 +61,12 @@ public final class HighScaleMetricsRegistry {
         }
     }
 
+    public static void recordMobSpawnDeferred() {
+        if (HighScaleMetrics.enabled) {
+            mobSpawnDeferred.increment();
+        }
+    }
+
     public static void recordPlayerSaveSubmitted(final int queueSize) {
         if (!HighScaleMetrics.enabled) {
             return;
@@ -99,6 +106,7 @@ public final class HighScaleMetricsRegistry {
             pathQueuePeak.get(),
             mobSpawnSubmitted.sum(),
             mobSpawnInline.sum(),
+            mobSpawnDeferred.sum(),
             mobSpawnQueuePeak.get(),
             playerSavesSubmitted.sum(),
             playerSaveQueuePeak.get(),
@@ -118,6 +126,7 @@ public final class HighScaleMetricsRegistry {
         pathQueuePeak.set(0);
         mobSpawnSubmitted.reset();
         mobSpawnInline.reset();
+        mobSpawnDeferred.reset();
         mobSpawnQueuePeak.set(0);
         playerSavesSubmitted.reset();
         playerSaveQueuePeak.set(0);
@@ -140,6 +149,7 @@ public final class HighScaleMetricsRegistry {
         int pathQueuePeak,
         long mobSpawnSubmitted,
         long mobSpawnInline,
+        long mobSpawnDeferred,
         int mobSpawnQueuePeak,
         long playerSavesSubmitted,
         int playerSaveQueuePeak,

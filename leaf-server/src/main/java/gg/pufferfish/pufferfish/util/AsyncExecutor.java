@@ -56,6 +56,7 @@ public class AsyncExecutor implements Runnable {
             }
             runInline = jobs.size() >= AsyncMobSpawning.maxQueuedTasks;
             if (runInline && deferWhenFull) {
+                HighScaleMetricsRegistry.recordMobSpawnDeferred();
                 return false;
             }
             if (!runInline) {
