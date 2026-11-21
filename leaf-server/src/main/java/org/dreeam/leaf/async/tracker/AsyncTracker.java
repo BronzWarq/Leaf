@@ -195,22 +195,42 @@ public final class AsyncTracker {
 
     private void handle(final Future<TrackerCtx>[] futures, final int futureCount) {
         final int packetMapCount = futureCount - 1;
+        boolean interrupted = false;
         try {
-            TrackerCtx ctx = futures[0].get();
+            TrackerCtx ctx;
+            for (;;) {
+                try {
+                    ctx = futures[0].get();
+                    break;
+                } catch (final InterruptedException e) {
+                    // Drain the task before reusing its context and capture map.
+                    interrupted = true;
+                }
+            }
             if (packetMapPool.length < packetMapCount) {
                 packetMapPool = newPacketMapArray(packetMapCount);
             }
             for (int i = 0; i < packetMapCount; i++) {
-                packetMapPool[i] = ctx.join(futures[i + 1].get());
+                TrackerCtx other;
+                for (;;) {
+                    try {
+                        other = futures[i + 1].get();
+                        break;
+                    } catch (final InterruptedException e) {
+                        interrupted = true;
+                    }
+                }
+                packetMapPool[i] = ctx.join(other);
             }
             ctx.handle(packetMapPool, packetMapCount);
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
         } catch (final ExecutionException e) {
             throw new RuntimeException(e);
         } finally {
             Arrays.fill(packetMapPool, 0, Math.min(packetMapCount, packetMapPool.length), null);
             Arrays.fill(futures, 0, futureCount, null);
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }
