@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:01:21 +0000
+Subject: [PATCH] Retry mob spawn counts when the worker queue is full
+
+
+diff --git a/net/minecraft/server/level/ServerChunkCache.java b/net/minecraft/server/level/ServerChunkCache.java
+index 0ec86b896f143f25e071a0a344e890b64acdcdca..ca48092ade4d3a6d9b45b70daa59d21b7f4a3fde 100644
+--- a/net/minecraft/server/level/ServerChunkCache.java
++++ b/net/minecraft/server/level/ServerChunkCache.java
+@@ -703,14 +703,16 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+             net.minecraft.world.attribute.EnvironmentAttributeReader environmentAttributes = this.asyncSpawnCostSampler.capture();
+             boolean countAllMobsForSpawning = this.level.paperConfig().entities.spawning.countAllMobsForSpawning;
+             this.spawnCountPending = true;
+-            this.level.getServer().mobSpawnExecutor.submit(() -> {
++            if (!this.level.getServer().mobSpawnExecutor.trySubmit(() -> {
+                 try {
+                     this.asyncSpawnState = NaturalSpawner.createStateAsync(spawnableChunkCount, entities, this.level, environmentAttributes, countAllMobsForSpawning);
+                 } catch (Exception exception) {
+                     this.asyncSpawnCountFailed = true;
+                     throw exception;
+                 }
+-            });
++            })) {
++                this.spawnCountPending = false;
++            }
+         }
+         // Leaf end - Pufferfish - async mob spawning
+ 

@@ -11,6 +11,7 @@ public class AsyncMobSpawning extends ConfigModule {
 
     public static boolean enabled = true;
     public static int maxQueuedTasks = 256;
+    public static boolean deferWhenFull = false;
     private static boolean asyncMobSpawningInitialized;
 
     @Override
@@ -22,7 +23,9 @@ public class AsyncMobSpawning extends ConfigModule {
                 One quick note - this does not actually spawn mobs async (that would be very unsafe).
                 This just offloads some expensive calculations that are required for mob spawning.
                 max-queued-tasks bounds stale async spawn-count work. When full, the submitting
-                server thread executes the new calculation inline to preserve result publication.""",
+                server thread executes the new calculation inline to preserve result publication.
+                Enable defer-when-full to retry on a later tick instead, reducing tick-thread work
+                at the cost of delayed spawning while the queue is saturated.""",
             """
                 是否异步化生物生成.
                 在实体较多的服务器上, 异步生成可最高带来 15% 的性能提升.
@@ -39,6 +42,7 @@ public class AsyncMobSpawning extends ConfigModule {
         enabled = globalConfig.getBoolean(basePath() + ".enabled", enabled);
         maxQueuedTasks = Math.max(1, Math.min(4096,
             globalConfig.getInt(basePath() + ".max-queued-tasks", maxQueuedTasks)));
+        deferWhenFull = globalConfig.getBoolean(basePath() + ".defer-when-full", deferWhenFull);
         enabled |= AsyncHighScaleProfile.enabled;
     }
 }

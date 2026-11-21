@@ -40,13 +40,24 @@ public class AsyncExecutor implements Runnable {
     }
 
     public void submit(Runnable runnable) {
+        submit(runnable, false);
+    }
+
+    public boolean trySubmit(Runnable runnable) {
+        return submit(runnable, AsyncMobSpawning.deferWhenFull);
+    }
+
+    private boolean submit(Runnable runnable, boolean deferWhenFull) {
         boolean runInline;
         int queueSize = 0;
         synchronized (jobs) {
             if (killswitch) {
-                return;
+                return false;
             }
             runInline = jobs.size() >= AsyncMobSpawning.maxQueuedTasks;
+            if (runInline && deferWhenFull) {
+                return false;
+            }
             if (!runInline) {
                 jobs.enqueue(runnable);
                 queueSize = jobs.size();
@@ -55,10 +66,11 @@ public class AsyncExecutor implements Runnable {
         if (runInline) {
             HighScaleMetricsRegistry.recordMobSpawnInline();
             runJob(runnable);
-            return;
+            return true;
         }
         HighScaleMetricsRegistry.recordMobSpawnSubmitted(queueSize);
         LockSupport.unpark(thread);
+        return true;
     }
 
     @Override
