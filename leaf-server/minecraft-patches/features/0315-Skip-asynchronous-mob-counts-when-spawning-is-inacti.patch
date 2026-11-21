@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 21:58:05 +0000
+Subject: [PATCH] Skip asynchronous mob counts when spawning is inactive
+
+
+diff --git a/net/minecraft/server/level/ServerChunkCache.java b/net/minecraft/server/level/ServerChunkCache.java
+index 823c2b34c880f38c636afa297c30d524b5b852ca..0ec86b896f143f25e071a0a344e890b64acdcdca 100644
+--- a/net/minecraft/server/level/ServerChunkCache.java
++++ b/net/minecraft/server/level/ServerChunkCache.java
+@@ -693,7 +693,7 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+         }
+ 
+         // Leaf start - Pufferfish - async mob spawning
+-        if (asyncCountMobs && !this.spawnCountPending) {
++        if (asyncCountMobs && doMobSpawning && !this.spawnCountPending) {
+             profiler.popPush("prepareAsyncSpawnCount");
+             if (this.asyncSpawnCostSampler == null) {
+                 this.asyncSpawnCostSampler = new NaturalSpawner.AsyncSpawnCostSampler(this.level);
