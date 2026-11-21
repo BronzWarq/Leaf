@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:19:32 +0000
+Subject: [PATCH] Revalidate walk targets while async paths are pending
+
+
+diff --git a/net/minecraft/world/entity/ai/behavior/MoveToTargetSink.java b/net/minecraft/world/entity/ai/behavior/MoveToTargetSink.java
+index bf7dc0f29e452d878756a10d97475721fd6a5747..920ba812a03ff2d4ef70492f4893c05d0d4fcdca 100644
+--- a/net/minecraft/world/entity/ai/behavior/MoveToTargetSink.java
++++ b/net/minecraft/world/entity/ai/behavior/MoveToTargetSink.java
+@@ -69,7 +69,7 @@ public class MoveToTargetSink extends Behavior<Mob> {
+ 
+     @Override
+     protected boolean canStillUse(final ServerLevel level, final Mob body, final long timestamp) {
+-        if (org.dreeam.leaf.config.modules.async.AsyncPathfinding.enabled && !this.finishedProcessing) return true; // Kaiiju - petal - async path processing - wait for processing
++        if (org.dreeam.leaf.config.modules.async.AsyncPathfinding.enabled && !this.finishedProcessing) return body.getBrain().hasMemoryValue(MemoryModuleType.WALK_TARGET); // Leaf - stop waiting when the target is removed
+         if (this.path != null && this.lastTargetPos != null) {
+             Optional<WalkTarget> walkTarget = body.getBrain().getMemory(MemoryModuleType.WALK_TARGET);
+             boolean isSpectator = walkTarget.map(MoveToTargetSink::isWalkTargetSpectator).orElse(false);
+@@ -115,6 +115,15 @@ public class MoveToTargetSink extends Behavior<Mob> {
+     protected void tick(final ServerLevel level, final Mob body, final long timestamp) {
+         // Kaiiju start - petal - async path processing
+         if (org.dreeam.leaf.config.modules.async.AsyncPathfinding.enabled) {
++            Optional<WalkTarget> currentTarget = body.getBrain().getMemory(MemoryModuleType.WALK_TARGET);
++            if (currentTarget.isEmpty()) {
++                this.finishedProcessing = true;
++                return;
++            }
++            if (this.lastTargetPos != null && currentTarget.get().getTarget().currentBlockPosition().distSqr(this.lastTargetPos) > 4.0D) {
++                this.start(level, body, timestamp);
++                return;
++            }
+             if (this.path != null && !this.path.isProcessed()) return; // wait for processing
+ 
+             if (!this.finishedProcessing) {
