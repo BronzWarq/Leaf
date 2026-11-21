@@ -18,10 +18,17 @@ public class ShutdownExecutors {
                 if (level.tickExecutor == null) {
                     continue;
                 }
-                LOGGER.info("Waiting for world tick executor {} to shutdown...", level.dimension().identifier());
                 level.tickExecutor.shutdown();
+            }
+            for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
+                if (level.tickExecutor == null) {
+                    continue;
+                }
+                LOGGER.info("Waiting for world tick executor {} to shutdown...", level.dimension().identifier());
                 try {
-                    level.tickExecutor.awaitTermination(10L, TimeUnit.SECONDS);
+                    if (!level.tickExecutor.awaitTermination(10L, TimeUnit.SECONDS)) {
+                        LOGGER.warn("World tick executor {} did not stop within 10 seconds", level.dimension().identifier());
+                    }
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     break;
