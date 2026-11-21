@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 22:30:05 +0000
+Subject: [PATCH] Preserve ordering of async world data saves
+
+
+diff --git a/net/minecraft/world/level/storage/LevelStorageSource.java b/net/minecraft/world/level/storage/LevelStorageSource.java
+index 0e87249ced87fcf7fedbae73fed514b046b43bae..5a8f24ccf7604a05bb6222ab90b92e2743d9b272 100644
+--- a/net/minecraft/world/level/storage/LevelStorageSource.java
++++ b/net/minecraft/world/level/storage/LevelStorageSource.java
+@@ -487,6 +487,9 @@ public class LevelStorageSource {
+         private final LevelStorageSource.LevelDirectory levelDirectory;
+         private final String levelId;
+         private final Map<LevelResource, Path> resources = Maps.newHashMap();
++        private final java.util.concurrent.atomic.AtomicLong leaf$levelSaveSequence = new java.util.concurrent.atomic.AtomicLong();
++        private final Object leaf$levelSaveLock = new Object();
++        private long leaf$lastCompletedLevelSave;
+ 
+         private LevelStorageAccess(final String levelId, final Path path) throws IOException {
+             this.levelId = levelId;
+@@ -624,6 +627,7 @@ public class LevelStorageSource {
+ 
+         private void saveLevelData(final CompoundTag root) {
+             Path worldDir = this.levelDirectory.path();
++            final long saveSequence = this.leaf$levelSaveSequence.incrementAndGet();
+ 
+             // Leaf start - Async playerdata saving
+             // Save level.dat asynchronously
+@@ -635,14 +639,19 @@ public class LevelStorageSource {
+                 return;
+             }
+             org.dreeam.leaf.async.AsyncPlayerDataSaving.submit(() -> {
+-                try {
+-                    Path dataFile = Files.createTempFile(worldDir, "level", ".dat");
+-                    org.apache.commons.io.FileUtils.writeByteArrayToFile(dataFile.toFile(), nbtBytes.array, 0, nbtBytes.length, false);
+-                    Path oldDataFile = this.levelDirectory.oldDataFile();
+-                    Path currentFile = this.levelDirectory.dataFile();
+-                    Util.safeReplaceFile(currentFile, dataFile, oldDataFile);
+-                } catch (Exception e) {
+-                    LevelStorageSource.LOGGER.error("Failed to save level {}", worldDir, e);
++                synchronized (this.leaf$levelSaveLock) {
++                    if (saveSequence <= this.leaf$lastCompletedLevelSave) return;
++                    try {
++                        Path dataFile = Files.createTempFile(worldDir, "level", ".dat");
++                        org.apache.commons.io.FileUtils.writeByteArrayToFile(dataFile.toFile(), nbtBytes.array, 0, nbtBytes.length, false);
++                        Path oldDataFile = this.levelDirectory.oldDataFile();
++                        Path currentFile = this.levelDirectory.dataFile();
++                        if (Util.safeReplaceOrMoveFile(currentFile, dataFile, oldDataFile, false)) {
++                            this.leaf$lastCompletedLevelSave = saveSequence;
++                        }
++                    } catch (Exception e) {
++                        LevelStorageSource.LOGGER.error("Failed to save level {}", worldDir, e);
++                    }
+                 }
+             });
+             // Leaf end - Async playerdata saving
+diff --git a/net/minecraft/world/level/storage/PlayerDataStorage.java b/net/minecraft/world/level/storage/PlayerDataStorage.java
+index 56eb168d192bd01c4564c385672c49be89c7dbfe..0aeeb1451e96aa6f34976c0edc91599851d53585 100644
+--- a/net/minecraft/world/level/storage/PlayerDataStorage.java
++++ b/net/minecraft/world/level/storage/PlayerDataStorage.java
+@@ -85,11 +85,13 @@ public class PlayerDataStorage {
+         if (fut == null) {
+             return;
+         }
++        boolean interrupted = false;
+         while (true) {
+             try {
+                 fut.get(10_000L, java.util.concurrent.TimeUnit.MILLISECONDS);
+                 break;
+             } catch (InterruptedException ignored) {
++                interrupted = true;
+             } catch (java.util.concurrent.ExecutionException
+                      | java.util.concurrent.TimeoutException exception) {
+                 LOGGER.warn("Failed to save player data for {}", playerName, exception);
+@@ -105,10 +107,14 @@ public class PlayerDataStorage {
+                 LOGGER.warn(threadDump);
+                 fut.cancel(true);
+                 break;
+-            } finally {
+-                savingLocks.remove(uniqueId);
+             }
+         }
++        synchronized (this) {
++            savingLocks.remove(uniqueId, fut);
++        }
++        if (interrupted) {
++            Thread.currentThread().interrupt();
++        }
+     }
+     // Leaf end - Async playerdata saving
+ 
