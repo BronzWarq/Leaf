@@ -38,6 +38,8 @@ public final class HighScaleMetricsRegistry {
     private static final LongAdder tntPreExplosionCancelled = new LongAdder();
     private static final LongAdder tntBlockExplosionCancelled = new LongAdder();
     private static final LongAdder tntBlockPrimeCancelled = new LongAdder();
+    private static final LongAdder tntDirectSpawnRejected = new LongAdder();
+    private static final LongAdder tntExplosionSpawnRejected = new LongAdder();
 
     private HighScaleMetricsRegistry() {
     }
@@ -142,6 +144,14 @@ public final class HighScaleMetricsRegistry {
         if (HighScaleMetrics.enabled) tntBlockPrimeCancelled.increment();
     }
 
+    public static void recordTntDirectSpawnRejected() {
+        if (HighScaleMetrics.enabled) tntDirectSpawnRejected.increment();
+    }
+
+    public static void recordTntExplosionSpawnRejected() {
+        if (HighScaleMetrics.enabled) tntExplosionSpawnRejected.increment();
+    }
+
     public static Snapshot snapshot() {
         return new Snapshot(
             pathSubmitted.sum(),
@@ -168,7 +178,9 @@ public final class HighScaleMetricsRegistry {
             tntExplosionPrimeCancelled.sum(),
             tntPreExplosionCancelled.sum(),
             tntBlockExplosionCancelled.sum(),
-            tntBlockPrimeCancelled.sum()
+            tntBlockPrimeCancelled.sum(),
+            tntDirectSpawnRejected.sum(),
+            tntExplosionSpawnRejected.sum()
         );
     }
 
@@ -198,6 +210,8 @@ public final class HighScaleMetricsRegistry {
         tntPreExplosionCancelled.reset();
         tntBlockExplosionCancelled.reset();
         tntBlockPrimeCancelled.reset();
+        tntDirectSpawnRejected.reset();
+        tntExplosionSpawnRejected.reset();
     }
 
     private static void updatePeak(final AtomicInteger peak, final int value) {
@@ -229,7 +243,9 @@ public final class HighScaleMetricsRegistry {
         long tntExplosionPrimeCancelled,
         long tntPreExplosionCancelled,
         long tntBlockExplosionCancelled,
-        long tntBlockPrimeCancelled
+        long tntBlockPrimeCancelled,
+        long tntDirectSpawnRejected,
+        long tntExplosionSpawnRejected
     ) {
     }
 }

@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 15:27:08 +0000
+Subject: [PATCH] Preserve directly primed TNT when entity spawn fails
+
+
+diff --git a/net/minecraft/world/level/block/TntBlock.java b/net/minecraft/world/level/block/TntBlock.java
+index daf0f8d4511cad6c81b70894f8d893a993730d7c..b9592f64135fda2bbbbcedfea965f63b6cd80b8e 100644
+--- a/net/minecraft/world/level/block/TntBlock.java
++++ b/net/minecraft/world/level/block/TntBlock.java
+@@ -72,7 +72,9 @@ public class TntBlock extends Block {
+         if (level.getGameRules().get(GameRules.TNT_EXPLODES)) {
+             PrimedTnt primed = new PrimedTnt(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, explosion.getIndirectSourceEntity());
+             primed.setFuse(PrimedTnt.getRandomShortFuse(primed.getFuse(), level.getRandom()));
+-            level.addFreshEntity(primed);
++            if (!level.addFreshEntity(primed)) {
++                org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntExplosionSpawnRejected(); // Leaf - TNT diagnostics
++            }
+         }
+     }
+ 
+@@ -105,7 +107,10 @@ public class TntBlock extends Block {
+             return false; // Paper - event supplier
+         } else {
+             PrimedTnt tnt = new PrimedTnt(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, source);
+-            level.addFreshEntity(tnt);
++            if (!level.addFreshEntity(tnt)) { // Leaf - do not remove an unprimed TNT block
++                org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntDirectSpawnRejected();
++                return false;
++            }
+             level.playSound(null, tnt.getX(), tnt.getY(), tnt.getZ(), SoundEvents.TNT_PRIMED, SoundSource.BLOCKS, 1.0F, 1.0F);
+             level.gameEvent(source, GameEvent.PRIME_FUSE, pos);
+             return true;
