@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 17:42:56 +0000
+Subject: [PATCH] Avoid unused explosion visibility ray allocations
+
+
+diff --git a/net/minecraft/world/level/ServerExplosion.java b/net/minecraft/world/level/ServerExplosion.java
+index f74f50c0af62600363d6f3a1d521a3ee3abcbc7e..1cd298308aa923edbcb8b6137d8635862298b82c 100644
+--- a/net/minecraft/world/level/ServerExplosion.java
++++ b/net/minecraft/world/level/ServerExplosion.java
+@@ -138,14 +138,14 @@ public class ServerExplosion implements Explosion {
+         return ret;
+     }
+ 
+-    private boolean clipsAnything(final Vec3 from, final Vec3 to,
++    private boolean clipsAnything(final double fromX, final double fromY, final double fromZ, final Vec3 to,
+                                   final ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.LazyEntityCollisionContext context,
+                                   final ca.spottedleaf.moonrise.patches.collisions.ExplosionBlockCache[] blockCache,
+                                   final BlockPos.MutableBlockPos currPos) {
+         // assume that context.delegated = false
+-        final double adjX = ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON * (from.x - to.x);
+-        final double adjY = ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON * (from.y - to.y);
+-        final double adjZ = ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON * (from.z - to.z);
++        final double adjX = ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON * (fromX - to.x);
++        final double adjY = ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON * (fromY - to.y);
++        final double adjZ = ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON * (fromZ - to.z);
+ 
+         if (adjX == 0.0 && adjY == 0.0 && adjZ == 0.0) {
+             return false;
+@@ -154,9 +154,9 @@ public class ServerExplosion implements Explosion {
+         final double toXAdj = to.x - adjX;
+         final double toYAdj = to.y - adjY;
+         final double toZAdj = to.z - adjZ;
+-        final double fromXAdj = from.x + adjX;
+-        final double fromYAdj = from.y + adjY;
+-        final double fromZAdj = from.z + adjZ;
++        final double fromXAdj = fromX + adjX;
++        final double fromYAdj = fromY + adjY;
++        final double fromZAdj = fromZ + adjZ;
+ 
+         int currX = Mth.floor(fromXAdj);
+         int currY = Mth.floor(fromYAdj);
+@@ -182,6 +182,7 @@ public class ServerExplosion implements Explosion {
+         double normalizedCurrY = normalizedDiffY * (diffY > 0.0 ? (1.0 - Mth.frac(fromYAdj)) : Mth.frac(fromYAdj));
+         double normalizedCurrZ = normalizedDiffZ * (diffZ > 0.0 ? (1.0 - Mth.frac(fromZAdj)) : Mth.frac(fromZAdj));
+ 
++        Vec3 from = null; // Leaf - allocate only if a collision shape needs clipping
+         for (;;) {
+             // ClipContext.Block.COLLIDER -> BlockBehaviour.BlockStateBase::getCollisionShape
+             // ClipContext.Fluid.NONE -> ignore fluids
+@@ -216,8 +217,11 @@ public class ServerExplosion implements Explosion {
+                     }
+                 }
+ 
+-                if (!collision.isEmpty() && collision.clip(from, to, currPos) != null) {
+-                    return true;
++                if (!collision.isEmpty()) {
++                    if (from == null) from = new Vec3(fromX, fromY, fromZ); // Leaf
++                    if (collision.clip(from, to, currPos) != null) {
++                        return true;
++                    }
+                 }
+             }
+ 
+@@ -280,13 +284,7 @@ public class ServerExplosion implements Explosion {
+                 for (double dz = 0.0; dz <= 1.0; dz += incZ) {
+                     ++totalRays;
+ 
+-                    final Vec3 from = new Vec3(
+-                            fromX,
+-                            fromY,
+-                            Math.fma(dz, diffZ, offZ)
+-                    );
+-
+-                    if (!this.clipsAnything(from, source, context, blockCache, blockPos)) {
++                    if (!this.clipsAnything(fromX, fromY, Math.fma(dz, diffZ, offZ), source, context, blockCache, blockPos)) { // Leaf
+                         ++missedRays;
+                     }
+                 }
