@@ -32,6 +32,12 @@ public final class HighScaleMetricsRegistry {
     private static final LongAdder tntDeferredEntityTicks = new LongAdder();
     private static final LongAdder tntBudgetLimitedWorldTicks = new LongAdder();
     private static final AtomicInteger tntDeferredPerWorldTickPeak = new AtomicInteger();
+    private static final LongAdder tntFuseExpired = new LongAdder();
+    private static final LongAdder tntRuleBlocked = new LongAdder();
+    private static final LongAdder tntExplosionPrimeCancelled = new LongAdder();
+    private static final LongAdder tntPreExplosionCancelled = new LongAdder();
+    private static final LongAdder tntBlockExplosionCancelled = new LongAdder();
+    private static final LongAdder tntBlockPrimeCancelled = new LongAdder();
 
     private HighScaleMetricsRegistry() {
     }
@@ -112,6 +118,30 @@ public final class HighScaleMetricsRegistry {
         updatePeak(tntDeferredPerWorldTickPeak, deferred);
     }
 
+    public static void recordTntFuseExpired() {
+        if (HighScaleMetrics.enabled) tntFuseExpired.increment();
+    }
+
+    public static void recordTntRuleBlocked() {
+        if (HighScaleMetrics.enabled) tntRuleBlocked.increment();
+    }
+
+    public static void recordTntExplosionPrimeCancelled() {
+        if (HighScaleMetrics.enabled) tntExplosionPrimeCancelled.increment();
+    }
+
+    public static void recordTntPreExplosionCancelled() {
+        if (HighScaleMetrics.enabled) tntPreExplosionCancelled.increment();
+    }
+
+    public static void recordTntBlockExplosionCancelled() {
+        if (HighScaleMetrics.enabled) tntBlockExplosionCancelled.increment();
+    }
+
+    public static void recordTntBlockPrimeCancelled() {
+        if (HighScaleMetrics.enabled) tntBlockPrimeCancelled.increment();
+    }
+
     public static Snapshot snapshot() {
         return new Snapshot(
             pathSubmitted.sum(),
@@ -132,7 +162,13 @@ public final class HighScaleMetricsRegistry {
             randomTickQueuePeak.get(),
             tntDeferredEntityTicks.sum(),
             tntBudgetLimitedWorldTicks.sum(),
-            tntDeferredPerWorldTickPeak.get()
+            tntDeferredPerWorldTickPeak.get(),
+            tntFuseExpired.sum(),
+            tntRuleBlocked.sum(),
+            tntExplosionPrimeCancelled.sum(),
+            tntPreExplosionCancelled.sum(),
+            tntBlockExplosionCancelled.sum(),
+            tntBlockPrimeCancelled.sum()
         );
     }
 
@@ -156,6 +192,12 @@ public final class HighScaleMetricsRegistry {
         tntDeferredEntityTicks.reset();
         tntBudgetLimitedWorldTicks.reset();
         tntDeferredPerWorldTickPeak.set(0);
+        tntFuseExpired.reset();
+        tntRuleBlocked.reset();
+        tntExplosionPrimeCancelled.reset();
+        tntPreExplosionCancelled.reset();
+        tntBlockExplosionCancelled.reset();
+        tntBlockPrimeCancelled.reset();
     }
 
     private static void updatePeak(final AtomicInteger peak, final int value) {
@@ -181,7 +223,13 @@ public final class HighScaleMetricsRegistry {
         int randomTickQueuePeak,
         long tntDeferredEntityTicks,
         long tntBudgetLimitedWorldTicks,
-        int tntDeferredPerWorldTickPeak
+        int tntDeferredPerWorldTickPeak,
+        long tntFuseExpired,
+        long tntRuleBlocked,
+        long tntExplosionPrimeCancelled,
+        long tntPreExplosionCancelled,
+        long tntBlockExplosionCancelled,
+        long tntBlockPrimeCancelled
     ) {
     }
 }

@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 15:21:58 +0000
+Subject: [PATCH] Track TNT explosion cancellation outcomes
+
+
+diff --git a/net/minecraft/world/entity/item/PrimedTnt.java b/net/minecraft/world/entity/item/PrimedTnt.java
+index f88c52d3f1325e3e04e575af84014aaa594301a6..a933af0ce1d970ca7f7f5b9c84c20d4e38d173cc 100644
+--- a/net/minecraft/world/entity/item/PrimedTnt.java
++++ b/net/minecraft/world/entity/item/PrimedTnt.java
+@@ -127,6 +127,7 @@ public class PrimedTnt extends Entity implements TraceableEntity {
+             // CraftBukkit start - Need to reverse the order of the explosion and the entity death so we have a location for the event
+             //this.discard();
+             if (!this.level().isClientSide()) {
++                org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntFuseExpired(); // Leaf - TNT diagnostics
+                 this.explode();
+             }
+             this.discard(EntityRemoveEvent.Cause.EXPLODE); // CraftBukkit - add Bukkit remove cause
+@@ -152,6 +153,7 @@ public class PrimedTnt extends Entity implements TraceableEntity {
+             // CraftBukkit start
+             ExplosionPrimeEvent event = CraftEventFactory.callExplosionPrimeEvent((org.bukkit.entity.Explosive) this.getBukkitEntity());
+             if (event.isCancelled()) {
++                org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntExplosionPrimeCancelled(); // Leaf - TNT diagnostics
+                 return;
+             }
+             // CraftBukkit end
+@@ -167,6 +169,8 @@ public class PrimedTnt extends Entity implements TraceableEntity {
+                     event.getFire(), // CraftBukkit
+                     Level.ExplosionInteraction.TNT
+                 );
++        } else if (this.level() instanceof ServerLevel) {
++            org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntRuleBlocked(); // Leaf - TNT diagnostics
+         }
+     }
+ 
+diff --git a/net/minecraft/world/level/ServerExplosion.java b/net/minecraft/world/level/ServerExplosion.java
+index 57a856e1807ef98609d7397a03e3c053018f2614..f74f50c0af62600363d6f3a1d521a3ee3abcbc7e 100644
+--- a/net/minecraft/world/level/ServerExplosion.java
++++ b/net/minecraft/world/level/ServerExplosion.java
+@@ -639,6 +639,7 @@ public class ServerExplosion implements Explosion {
+         }
+ 
+         if (this.wasCanceled) {
++            if (this.source instanceof PrimedTnt) org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntBlockExplosionCancelled(); // Leaf - TNT diagnostics
+             return;
+         }
+         // CraftBukkit end
+@@ -651,6 +652,7 @@ public class ServerExplosion implements Explosion {
+                 Entity sourceEntity = this.source == null ? null : this.source;
+                 BlockPos sourceBlock = sourceEntity == null ? BlockPos.containing(this.center) : null;
+                 if (!org.bukkit.craftbukkit.event.CraftEventFactory.callTNTPrimeEvent(this.level, pos, org.bukkit.event.block.TNTPrimeEvent.PrimeCause.EXPLOSION, sourceEntity, sourceBlock)) {
++                    org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntBlockPrimeCancelled(); // Leaf - TNT diagnostics
+                     this.level.sendBlockUpdated(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), state, Block.UPDATE_ALL); // Update the block on the client
+                     continue;
+                 }
+@@ -695,6 +697,7 @@ public class ServerExplosion implements Explosion {
+         if (this.source != null) {
+             org.bukkit.Location location = new org.bukkit.Location(this.level.getWorld(), this.center.x, this.center.y, this.center.z);
+             if(!new org.purpurmc.purpur.event.entity.PreEntityExplodeEvent(this.source.getBukkitEntity(), location, this.blockInteraction == Explosion.BlockInteraction.DESTROY_WITH_DECAY ? 1.0F / this.radius : 1.0F, org.bukkit.craftbukkit.CraftExplosionResult.toExplosionResult(getBlockInteraction())).callEvent()) {
++                if (this.source instanceof PrimedTnt) org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntPreExplosionCancelled(); // Leaf - TNT diagnostics
+                 this.wasCanceled = true;
+                 return 0;
+             }

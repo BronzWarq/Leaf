@@ -49,6 +49,12 @@ public final class MetricsCommand extends PermissionedLeafSubcommand {
         sender.sendMessage(Component.text("  tnt-limit: deferred-entity-ticks=" + snapshot.tntDeferredEntityTicks()
             + ", limited-world-ticks=" + snapshot.tntBudgetLimitedWorldTicks()
             + ", deferred-per-world-tick-peak=" + snapshot.tntDeferredPerWorldTickPeak()));
+        sender.sendMessage(Component.text("  tnt-fuse: expired=" + snapshot.tntFuseExpired()
+            + ", gamerule-blocked=" + snapshot.tntRuleBlocked()
+            + ", explosion-prime-cancelled=" + snapshot.tntExplosionPrimeCancelled()));
+        sender.sendMessage(Component.text("  tnt-events: pre-explosion-cancelled=" + snapshot.tntPreExplosionCancelled()
+            + ", block-explosion-cancelled=" + snapshot.tntBlockExplosionCancelled()
+            + ", block-prime-cancelled=" + snapshot.tntBlockPrimeCancelled()));
         return true;
     }
 }
