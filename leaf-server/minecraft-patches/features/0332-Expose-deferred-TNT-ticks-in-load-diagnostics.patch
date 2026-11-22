@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 15:20:04 +0000
+Subject: [PATCH] Expose deferred TNT ticks in load diagnostics
+
+
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index 63ce6b92b6356a1c5952700eeaed9d61a7ca6320..48ded1a3539ef777310c1a630d1d2253021616af 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -1155,6 +1155,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+             this.tickBlockEntities();
+             profiler.pop();
+             } // Paper - option to disable ticking
++            org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntTickBudget(this.spigotConfig.currentPrimedTnt, this.spigotConfig.maxTntTicksPerTick); // Leaf - diagnose deferred TNT ticks
+             this.spigotConfig.currentPrimedTnt = 0; // Spigot
+         }
+ 

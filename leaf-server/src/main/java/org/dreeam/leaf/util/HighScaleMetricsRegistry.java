@@ -29,6 +29,9 @@ public final class HighScaleMetricsRegistry {
     private static final LongAdder randomTickRuns = new LongAdder();
     private static final LongAdder randomTickSamples = new LongAdder();
     private static final AtomicInteger randomTickQueuePeak = new AtomicInteger();
+    private static final LongAdder tntDeferredEntityTicks = new LongAdder();
+    private static final LongAdder tntBudgetLimitedWorldTicks = new LongAdder();
+    private static final AtomicInteger tntDeferredPerWorldTickPeak = new AtomicInteger();
 
     private HighScaleMetricsRegistry() {
     }
@@ -99,6 +102,16 @@ public final class HighScaleMetricsRegistry {
         updatePeak(randomTickQueuePeak, samples);
     }
 
+    public static void recordTntTickBudget(final int attempted, final int limit) {
+        if (!HighScaleMetrics.enabled || limit <= 0 || attempted <= limit) {
+            return;
+        }
+        final int deferred = attempted - limit;
+        tntDeferredEntityTicks.add(deferred);
+        tntBudgetLimitedWorldTicks.increment();
+        updatePeak(tntDeferredPerWorldTickPeak, deferred);
+    }
+
     public static Snapshot snapshot() {
         return new Snapshot(
             pathSubmitted.sum(),
@@ -116,7 +129,10 @@ public final class HighScaleMetricsRegistry {
             trackerCallerRuns.sum(),
             randomTickRuns.sum(),
             randomTickSamples.sum(),
-            randomTickQueuePeak.get()
+            randomTickQueuePeak.get(),
+            tntDeferredEntityTicks.sum(),
+            tntBudgetLimitedWorldTicks.sum(),
+            tntDeferredPerWorldTickPeak.get()
         );
     }
 
@@ -137,6 +153,9 @@ public final class HighScaleMetricsRegistry {
         randomTickRuns.reset();
         randomTickSamples.reset();
         randomTickQueuePeak.set(0);
+        tntDeferredEntityTicks.reset();
+        tntBudgetLimitedWorldTicks.reset();
+        tntDeferredPerWorldTickPeak.set(0);
     }
 
     private static void updatePeak(final AtomicInteger peak, final int value) {
@@ -159,7 +178,10 @@ public final class HighScaleMetricsRegistry {
         long trackerCallerRuns,
         long randomTickRuns,
         long randomTickSamples,
-        int randomTickQueuePeak
+        int randomTickQueuePeak,
+        long tntDeferredEntityTicks,
+        long tntBudgetLimitedWorldTicks,
+        int tntDeferredPerWorldTickPeak
     ) {
     }
 }

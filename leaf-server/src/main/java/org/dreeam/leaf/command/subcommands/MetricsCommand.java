@@ -46,6 +46,9 @@ public final class MetricsCommand extends PermissionedLeafSubcommand {
         sender.sendMessage(Component.text("  random-tick: runs=" + snapshot.randomTickRuns()
             + ", samples=" + snapshot.randomTickSamples()
             + ", queue-peak=" + snapshot.randomTickQueuePeak()));
+        sender.sendMessage(Component.text("  tnt-limit: deferred-entity-ticks=" + snapshot.tntDeferredEntityTicks()
+            + ", limited-world-ticks=" + snapshot.tntBudgetLimitedWorldTicks()
+            + ", deferred-per-world-tick-peak=" + snapshot.tntDeferredPerWorldTickPeak()));
         return true;
     }
 }
