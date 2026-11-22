@@ -40,6 +40,9 @@ public final class HighScaleMetricsRegistry {
     private static final LongAdder tntBlockPrimeCancelled = new LongAdder();
     private static final LongAdder tntDirectSpawnRejected = new LongAdder();
     private static final LongAdder tntExplosionSpawnRejected = new LongAdder();
+    private static final LongAdder tntEffectPacketsSent = new LongAdder();
+    private static final LongAdder tntEffectPacketsWithKnockback = new LongAdder();
+    private static final LongAdder tntEffectPacketsSuppressed = new LongAdder();
 
     private HighScaleMetricsRegistry() {
     }
@@ -152,6 +155,17 @@ public final class HighScaleMetricsRegistry {
         if (HighScaleMetrics.enabled) tntExplosionSpawnRejected.increment();
     }
 
+    public static void recordTntEffectSent(final boolean knockback) {
+        if (HighScaleMetrics.enabled) {
+            tntEffectPacketsSent.increment();
+            if (knockback) tntEffectPacketsWithKnockback.increment();
+        }
+    }
+
+    public static void recordTntEffectSuppressed() {
+        if (HighScaleMetrics.enabled) tntEffectPacketsSuppressed.increment();
+    }
+
     public static Snapshot snapshot() {
         return new Snapshot(
             pathSubmitted.sum(),
@@ -180,7 +194,10 @@ public final class HighScaleMetricsRegistry {
             tntBlockExplosionCancelled.sum(),
             tntBlockPrimeCancelled.sum(),
             tntDirectSpawnRejected.sum(),
-            tntExplosionSpawnRejected.sum()
+            tntExplosionSpawnRejected.sum(),
+            tntEffectPacketsSent.sum(),
+            tntEffectPacketsWithKnockback.sum(),
+            tntEffectPacketsSuppressed.sum()
         );
     }
 
@@ -212,6 +229,9 @@ public final class HighScaleMetricsRegistry {
         tntBlockPrimeCancelled.reset();
         tntDirectSpawnRejected.reset();
         tntExplosionSpawnRejected.reset();
+        tntEffectPacketsSent.reset();
+        tntEffectPacketsWithKnockback.reset();
+        tntEffectPacketsSuppressed.reset();
     }
 
     private static void updatePeak(final AtomicInteger peak, final int value) {
@@ -245,7 +265,10 @@ public final class HighScaleMetricsRegistry {
         long tntBlockExplosionCancelled,
         long tntBlockPrimeCancelled,
         long tntDirectSpawnRejected,
-        long tntExplosionSpawnRejected
+        long tntExplosionSpawnRejected,
+        long tntEffectPacketsSent,
+        long tntEffectPacketsWithKnockback,
+        long tntEffectPacketsSuppressed
     ) {
     }
 }

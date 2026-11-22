@@ -57,6 +57,9 @@ public final class MetricsCommand extends PermissionedLeafSubcommand {
             + ", block-prime-cancelled=" + snapshot.tntBlockPrimeCancelled()));
         sender.sendMessage(Component.text("  tnt-spawn: direct-rejected=" + snapshot.tntDirectSpawnRejected()
             + ", explosion-rejected=" + snapshot.tntExplosionSpawnRejected()));
+        sender.sendMessage(Component.text("  tnt-effects: packets-sent=" + snapshot.tntEffectPacketsSent()
+            + ", with-knockback=" + snapshot.tntEffectPacketsWithKnockback()
+            + ", suppressed=" + snapshot.tntEffectPacketsSuppressed()));
         return true;
     }
 }

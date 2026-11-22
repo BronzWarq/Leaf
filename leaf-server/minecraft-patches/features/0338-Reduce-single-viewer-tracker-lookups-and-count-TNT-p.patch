@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 17:01:01 +0000
+Subject: [PATCH] Reduce single viewer tracker lookups and count TNT packets
+
+
+diff --git a/net/minecraft/server/level/ChunkMap.java b/net/minecraft/server/level/ChunkMap.java
+index 0013e883d9db6c83fb3ee68be17b493cac604abd..2927e583af0ff7376a6602d597068a16a78e208d 100644
+--- a/net/minecraft/server/level/ChunkMap.java
++++ b/net/minecraft/server/level/ChunkMap.java
+@@ -1666,6 +1666,11 @@ public class ChunkMap extends SimpleRegionStorage implements ChunkHolder.PlayerP
+                 }
+                 // CraftBukkit end
+                 if (visibleToPlayer) {
++                    // Leaf - avoid a repeated hash lookup for the common single-viewer synchronous case
++                    if (!org.dreeam.leaf.config.modules.async.MultithreadedTracker.enabled && !this.seenByUpdated
++                        && this.seenByArray.length == 1 && this.seenByArray[0] == player.connection) {
++                        return false;
++                    }
+                     if (this.seenBy.add(player.connection)) {
+                         // Paper start - entity tracking events
+                         if (io.papermc.paper.event.player.PlayerTrackEntityEvent.getHandlerList().getRegisteredListeners().length == 0 || new io.papermc.paper.event.player.PlayerTrackEntityEvent(player.getBukkitEntity(), this.entity.getBukkitEntity()).callEvent()) {
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index d35dccf63cdeba1194ba767f52ef83afc65801a7..504d79b633fb55989d631932f6e104f23bf31a97 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -2358,6 +2358,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+                     if (previous != 0 || cells.size() < 4096) {
+                         final boolean soundAlreadyPlayed = (previous & 2) != 0;
+                         if ((previous & 1) != 0 && playerKnockback.isEmpty() && (!playExplosionSound || soundAlreadyPlayed)) {
++                            org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntEffectSuppressed(); // Leaf - TNT diagnostics
+                             continue;
+                         }
+                         playExplosionSound &= !soundAlreadyPlayed;
+@@ -2365,6 +2366,9 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+                     }
+                 }
+                 // Leaf end - coalesce repeated TNT effects without dropping knockback
++                if (source instanceof net.minecraft.world.entity.item.PrimedTnt) {
++                    org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntEffectSent(playerKnockback.isPresent()); // Leaf - TNT diagnostics
++                }
+                 player.connection
+                     .send(
+                         new ClientboundExplodePacket(
