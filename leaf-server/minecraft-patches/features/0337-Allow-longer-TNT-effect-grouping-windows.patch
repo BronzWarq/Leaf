@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 16:28:43 +0000
+Subject: [PATCH] Allow longer TNT effect grouping windows
+
+
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index 48ded1a3539ef777310c1a630d1d2253021616af..d35dccf63cdeba1194ba767f52ef83afc65801a7 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -194,8 +194,9 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+     private static final int MAX_SCHEDULED_TICKS_PER_TICK = 65536;
+     private static final AtomicInteger ENTITY_COUNTER = new AtomicInteger();
+     private final List<ServerPlayer> players = Lists.newArrayList();
+-    // Leaf - per-player TNT visual and sound deduplication, cleared each world tick
++    // Leaf - per-player TNT visual and sound deduplication, cleared at the end of each window
+     private final java.util.Map<ServerPlayer, it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap> leaf$tntEffectCells = new java.util.IdentityHashMap<>();
++    private int leaf$tntEffectWindowTick;
+     private final ServerChunkCache chunkSource;
+     private final MinecraftServer server;
+     public final io.papermc.paper.world.saveddata.PaperLevelOverrides serverLevelData; // Paper - type
+@@ -1013,7 +1014,13 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+     // Leaf end - SparklyPaper - parallel world ticking
+ 
+     public void tick(final BooleanSupplier haveTime) {
+-        this.leaf$tntEffectCells.clear(); // Leaf - do not retain players or effects across ticks
++        // Leaf start - bound TNT effect grouping to a short, configurable window
++        if (!org.dreeam.leaf.config.modules.opt.ReduceUselessPackets.coalesceTntExplosionEffects
++            || ++this.leaf$tntEffectWindowTick >= org.dreeam.leaf.config.modules.opt.ReduceUselessPackets.coalesceTntExplosionWindowTicks) {
++            this.leaf$tntEffectCells.clear();
++            this.leaf$tntEffectWindowTick = 0;
++        }
++        // Leaf end - bound TNT effect grouping to a short, configurable window
+         ProfilerFiller profiler = Profiler.get();
+         this.handlingTick = true;
+         this.environmentAttributes().invalidateTickCache();
