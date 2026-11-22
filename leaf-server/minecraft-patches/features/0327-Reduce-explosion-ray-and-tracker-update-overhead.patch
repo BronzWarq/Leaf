@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 13:07:10 +0000
+Subject: [PATCH] Reduce explosion ray and tracker update overhead
+
+
+diff --git a/net/minecraft/server/level/ChunkMap.java b/net/minecraft/server/level/ChunkMap.java
+index 0a0dad530483297ef6313cad73b41e317aff5b3d..b1c5bf9100ef24d8b5849daea6ce80e14f202623 100644
+--- a/net/minecraft/server/level/ChunkMap.java
++++ b/net/minecraft/server/level/ChunkMap.java
+@@ -1679,7 +1679,7 @@ public class ChunkMap extends SimpleRegionStorage implements ChunkHolder.PlayerP
+                         return true;
+                     }
+                 } else {
+-                    this.removePlayerMulti(player);
++                    return this.removePlayerMulti(player); // Leaf - refresh the cached viewer array after removal
+                 }
+             }
+             return false;
+diff --git a/net/minecraft/world/level/ServerExplosion.java b/net/minecraft/world/level/ServerExplosion.java
+index 0d0ace1217f956401e938808253dfd33e24d366c..6440621a0e45e8fc975aec7ffc37c7dc43d58b03 100644
+--- a/net/minecraft/world/level/ServerExplosion.java
++++ b/net/minecraft/world/level/ServerExplosion.java
+@@ -183,8 +183,6 @@ public class ServerExplosion implements Explosion {
+         double normalizedCurrZ = normalizedDiffZ * (diffZ > 0.0 ? (1.0 - Mth.frac(fromZAdj)) : Mth.frac(fromZAdj));
+ 
+         for (;;) {
+-            currPos.set(currX, currY, currZ);
+-
+             // ClipContext.Block.COLLIDER -> BlockBehaviour.BlockStateBase::getCollisionShape
+             // ClipContext.Fluid.NONE -> ignore fluids
+ 
+@@ -202,6 +200,7 @@ public class ServerExplosion implements Explosion {
+ 
+             final BlockState blockState = cachedBlock.blockState;
+             if (blockState != null && !((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)blockState).moonrise$emptyContextCollisionShape()) {
++                currPos.set(currX, currY, currZ); // Leaf - only materialize positions for blocks with collision
+                 net.minecraft.world.phys.shapes.VoxelShape collision = cachedBlock.cachedCollisionShape;
+                 if (collision == null) {
+                     collision = ((ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState)blockState).moonrise$getConstantContextCollisionShape();
