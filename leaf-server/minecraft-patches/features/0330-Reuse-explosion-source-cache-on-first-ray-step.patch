@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 15:11:25 +0000
+Subject: [PATCH] Reuse explosion source cache on first ray step
+
+
+diff --git a/net/minecraft/world/level/ServerExplosion.java b/net/minecraft/world/level/ServerExplosion.java
+index 221cdf79d5820248d2098a718ecc26e71e5602ef..57a856e1807ef98609d7397a03e3c053018f2614 100644
+--- a/net/minecraft/world/level/ServerExplosion.java
++++ b/net/minecraft/world/level/ServerExplosion.java
+@@ -414,22 +414,27 @@ public class ServerExplosion implements Explosion {
+             ray += 3;
+ 
+             float power = this.radius * (0.7F + this.level.getRandom().nextFloat() * 0.6F);
++            boolean firstStep = true; // Leaf - the first position is already in initialCache
+ 
+             do {
+-                final int blockX = Mth.floor(currX);
+-                final int blockY = Mth.floor(currY);
+-                final int blockZ = Mth.floor(currZ);
+-
+-                final long key = BlockPos.asLong(blockX, blockY, blockZ);
+-
+-                if (cachedBlock.key != key) {
+-                    final int cacheKey =
+-                        (blockX & BLOCK_EXPLOSION_CACHE_MASK) |
+-                            (blockY & BLOCK_EXPLOSION_CACHE_MASK) << (BLOCK_EXPLOSION_CACHE_SHIFT) |
+-                            (blockZ & BLOCK_EXPLOSION_CACHE_MASK) << (BLOCK_EXPLOSION_CACHE_SHIFT + BLOCK_EXPLOSION_CACHE_SHIFT);
+-                    cachedBlock = blockCache[cacheKey];
+-                    if (cachedBlock == null || cachedBlock.key != key) {
+-                        blockCache[cacheKey] = cachedBlock = this.getOrCacheExplosionBlock(blockX, blockY, blockZ, key, true);
++                if (firstStep) {
++                    firstStep = false;
++                } else {
++                    final int blockX = Mth.floor(currX);
++                    final int blockY = Mth.floor(currY);
++                    final int blockZ = Mth.floor(currZ);
++
++                    final long key = BlockPos.asLong(blockX, blockY, blockZ);
++
++                    if (cachedBlock.key != key) {
++                        final int cacheKey =
++                            (blockX & BLOCK_EXPLOSION_CACHE_MASK) |
++                                (blockY & BLOCK_EXPLOSION_CACHE_MASK) << (BLOCK_EXPLOSION_CACHE_SHIFT) |
++                                (blockZ & BLOCK_EXPLOSION_CACHE_MASK) << (BLOCK_EXPLOSION_CACHE_SHIFT + BLOCK_EXPLOSION_CACHE_SHIFT);
++                        cachedBlock = blockCache[cacheKey];
++                        if (cachedBlock == null || cachedBlock.key != key) {
++                            blockCache[cacheKey] = cachedBlock = this.getOrCacheExplosionBlock(blockX, blockY, blockZ, key, true);
++                        }
+                     }
+                 }
+ 
