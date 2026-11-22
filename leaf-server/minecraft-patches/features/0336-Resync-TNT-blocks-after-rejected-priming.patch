@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 16:25:37 +0000
+Subject: [PATCH] Resync TNT blocks after rejected priming
+
+
+diff --git a/net/minecraft/world/level/block/TntBlock.java b/net/minecraft/world/level/block/TntBlock.java
+index b9592f64135fda2bbbbcedfea965f63b6cd80b8e..2d5718f9d6ded2ff8a7099cb2cc64078eeb1dd18 100644
+--- a/net/minecraft/world/level/block/TntBlock.java
++++ b/net/minecraft/world/level/block/TntBlock.java
+@@ -109,6 +109,7 @@ public class TntBlock extends Block {
+             PrimedTnt tnt = new PrimedTnt(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, source);
+             if (!level.addFreshEntity(tnt)) { // Leaf - do not remove an unprimed TNT block
+                 org.dreeam.leaf.util.HighScaleMetricsRegistry.recordTntDirectSpawnRejected();
++                serverLevel.getChunkSource().blockChanged(pos); // Leaf - resend the actual block state to tracking clients
+                 return false;
+             }
+             level.playSound(null, tnt.getX(), tnt.getY(), tnt.getZ(), SoundEvents.TNT_PRIMED, SoundSource.BLOCKS, 1.0F, 1.0F);
