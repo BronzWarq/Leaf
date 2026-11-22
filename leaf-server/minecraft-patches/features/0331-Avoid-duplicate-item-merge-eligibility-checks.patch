@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 15:13:45 +0000
+Subject: [PATCH] Avoid duplicate item merge eligibility checks
+
+
+diff --git a/net/minecraft/world/entity/item/ItemEntity.java b/net/minecraft/world/entity/item/ItemEntity.java
+index 408c9d4aa72eddd524f4c240f3c72c5637944da6..aa5e92d448a16b476ca2ea21c72016a7f45a3f18 100644
+--- a/net/minecraft/world/entity/item/ItemEntity.java
++++ b/net/minecraft/world/entity/item/ItemEntity.java
+@@ -206,7 +206,7 @@ public class ItemEntity extends Entity implements TraceableEntity, net.caffeinem
+                 || Mth.floor(this.yo) != Mth.floor(this.getY())
+                 || Mth.floor(this.zo) != Mth.floor(this.getZ());
+             int rate = moved ? 2 : 40;
+-            if (this.tickCount % rate == 0 && !this.level().isClientSide() && this.isMergable()) {
++            if (this.tickCount % rate == 0 && !this.level().isClientSide()) { // Leaf - mergeWithNeighbours checks eligibility
+                 this.mergeWithNeighbours();
+             }
+ 
