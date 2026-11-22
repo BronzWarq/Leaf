@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 13:24:58 +0000
+Subject: [PATCH] Coalesce repeated TNT explosion effects
+
+
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index 7c73f5373d741c5703fff7f5e6eb66d6916b6d8f..63ce6b92b6356a1c5952700eeaed9d61a7ca6320 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -194,6 +194,8 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+     private static final int MAX_SCHEDULED_TICKS_PER_TICK = 65536;
+     private static final AtomicInteger ENTITY_COUNTER = new AtomicInteger();
+     private final List<ServerPlayer> players = Lists.newArrayList();
++    // Leaf - per-player TNT visual and sound deduplication, cleared each world tick
++    private final java.util.Map<ServerPlayer, it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap> leaf$tntEffectCells = new java.util.IdentityHashMap<>();
+     private final ServerChunkCache chunkSource;
+     private final MinecraftServer server;
+     public final io.papermc.paper.world.saveddata.PaperLevelOverrides serverLevelData; // Paper - type
+@@ -1011,6 +1013,7 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+     // Leaf end - SparklyPaper - parallel world ticking
+ 
+     public void tick(final BooleanSupplier haveTime) {
++        this.leaf$tntEffectCells.clear(); // Leaf - do not retain players or effects across ticks
+         ProfilerFiller profiler = Profiler.get();
+         this.handlingTick = true;
+         this.environmentAttributes().invalidateTickCache();
+@@ -2333,14 +2336,31 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+         }
+         // CraftBukkit end
+         ParticleOptions explosionParticle = explosion.isSmall() ? smallExplosionParticles : largeExplosionParticles;
++        final boolean coalesceTntEffects = org.dreeam.leaf.config.modules.opt.ReduceUselessPackets.coalesceTntExplosionEffects && source instanceof net.minecraft.world.entity.item.PrimedTnt; // Leaf
++        final long effectCell = coalesceTntEffects ? BlockPos.asLong(Mth.floor(x) >> 4, Mth.floor(y) >> 4, Mth.floor(z) >> 4) : 0L; // Leaf
+ 
+         for (ServerPlayer player : this.players) {
+             if (player.distanceToSqr(center) < 4096.0) {
+                 Optional<Vec3> playerKnockback = Optional.ofNullable(explosion.getHitPlayers().get(player));
++                boolean playExplosionSound = source == null || !source.isSilent();
++                // Leaf start - coalesce repeated TNT effects without dropping knockback
++                if (coalesceTntEffects) {
++                    final var cells = this.leaf$tntEffectCells.computeIfAbsent(player, ignored -> new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap());
++                    final byte previous = cells.get(effectCell);
++                    if (previous != 0 || cells.size() < 4096) {
++                        final boolean soundAlreadyPlayed = (previous & 2) != 0;
++                        if ((previous & 1) != 0 && playerKnockback.isEmpty() && (!playExplosionSound || soundAlreadyPlayed)) {
++                            continue;
++                        }
++                        playExplosionSound &= !soundAlreadyPlayed;
++                        cells.put(effectCell, (byte)(previous | 1 | (playExplosionSound ? 2 : 0)));
++                    }
++                }
++                // Leaf end - coalesce repeated TNT effects without dropping knockback
+                 player.connection
+                     .send(
+                         new ClientboundExplodePacket(
+-                            center, r, blockCount, playerKnockback, explosionParticle, explosionSound, blockParticles, source == null || !source.isSilent()
++                            center, r, blockCount, playerKnockback, explosionParticle, explosionSound, blockParticles, playExplosionSound // Leaf - coalesce TNT sounds
+                         )
+                     );
+             }
+diff --git a/net/minecraft/world/level/ServerExplosion.java b/net/minecraft/world/level/ServerExplosion.java
+index 6440621a0e45e8fc975aec7ffc37c7dc43d58b03..221cdf79d5820248d2098a718ecc26e71e5602ef 100644
+--- a/net/minecraft/world/level/ServerExplosion.java
++++ b/net/minecraft/world/level/ServerExplosion.java
+@@ -387,6 +387,11 @@ public class ServerExplosion implements Explosion {
+             final long key = BlockPos.asLong(blockX, blockY, blockZ);
+ 
+             initialCache = this.getOrCacheExplosionBlock(blockX, blockY, blockZ, key, true);
++            // Leaf - prime the direct cache for rays that return to the source block
++            final int cacheKey = (blockX & BLOCK_EXPLOSION_CACHE_MASK)
++                | (blockY & BLOCK_EXPLOSION_CACHE_MASK) << BLOCK_EXPLOSION_CACHE_SHIFT
++                | (blockZ & BLOCK_EXPLOSION_CACHE_MASK) << (BLOCK_EXPLOSION_CACHE_SHIFT + BLOCK_EXPLOSION_CACHE_SHIFT);
++            blockCache[cacheKey] = initialCache;
+         }
+ 
+         // only ~1/3rd of the loop iterations in vanilla will result in a ray, as it is iterating the perimeter of
