@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 15:08:06 +0000
+Subject: [PATCH] Protect tracker snapshots and reduce item tick allocations
+
+
+diff --git a/net/minecraft/server/level/ChunkMap.java b/net/minecraft/server/level/ChunkMap.java
+index b1c5bf9100ef24d8b5849daea6ce80e14f202623..5e4cc29c5d1da229082d4192dcf4d38eebbb8bc0 100644
+--- a/net/minecraft/server/level/ChunkMap.java
++++ b/net/minecraft/server/level/ChunkMap.java
+@@ -1327,8 +1327,10 @@ public class ChunkMap extends SimpleRegionStorage implements ChunkHolder.PlayerP
+             }
+         }
+         public void seenByUpdated() {
+-            this.seenByArray = this.seenBy.toArray(EMPTY_OBJECT_ARRAY);
+-            seenByUpdated = false;
++            synchronized (this.seenBy) { // Leaf - publish the snapshot and clear the dirty flag atomically
++                this.seenByArray = this.seenBy.toArray(EMPTY_OBJECT_ARRAY);
++                seenByUpdated = false;
++            }
+         }
+         // Leaf end - Multithreaded tracker
+ 
+diff --git a/net/minecraft/world/entity/item/ItemEntity.java b/net/minecraft/world/entity/item/ItemEntity.java
+index a4a5cec975824890d6a41df17a36ae40cf9148fc..408c9d4aa72eddd524f4c240f3c72c5637944da6 100644
+--- a/net/minecraft/world/entity/item/ItemEntity.java
++++ b/net/minecraft/world/entity/item/ItemEntity.java
+@@ -216,7 +216,7 @@ public class ItemEntity extends Entity implements TraceableEntity, net.caffeinem
+ 
+             this.needsSync = this.needsSync | this.updateFluidInteraction();
+             if (!this.level().isClientSide()) {
+-                double value = this.getDeltaMovement().subtract(oldMovement).lengthSqr();
++                double value = this.getDeltaMovement().distanceToSqr(oldMovement); // Leaf - avoid an intermediate movement vector
+                 if (value > 0.01) {
+                     this.needsSync = true;
+                 }
