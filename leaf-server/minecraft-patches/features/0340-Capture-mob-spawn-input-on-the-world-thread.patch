@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 18:00:42 +0000
+Subject: [PATCH] Capture mob spawn input on the world thread
+
+
+diff --git a/net/minecraft/server/level/ServerChunkCache.java b/net/minecraft/server/level/ServerChunkCache.java
+index ca48092ade4d3a6d9b45b70daa59d21b7f4a3fde..0e22f482e4a690771cbb86f1dd6ded40e1485602 100644
+--- a/net/minecraft/server/level/ServerChunkCache.java
++++ b/net/minecraft/server/level/ServerChunkCache.java
+@@ -702,16 +702,24 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+             Iterable<Entity> entities = this.level.getAllEntities();
+             net.minecraft.world.attribute.EnvironmentAttributeReader environmentAttributes = this.asyncSpawnCostSampler.capture();
+             boolean countAllMobsForSpawning = this.level.paperConfig().entities.spawning.countAllMobsForSpawning;
+-            this.spawnCountPending = true;
+-            if (!this.level.getServer().mobSpawnExecutor.trySubmit(() -> {
+-                try {
+-                    this.asyncSpawnState = NaturalSpawner.createStateAsync(spawnableChunkCount, entities, this.level, environmentAttributes, countAllMobsForSpawning);
+-                } catch (Exception exception) {
+-                    this.asyncSpawnCountFailed = true;
+-                    throw exception;
++            try {
++                List<NaturalSpawner.AsyncSpawnSnapshot> spawnSnapshot = NaturalSpawner.captureAsyncSpawnSnapshot(
++                    entities, this.level, environmentAttributes, countAllMobsForSpawning
++                );
++                this.spawnCountPending = true;
++                if (!this.level.getServer().mobSpawnExecutor.trySubmit(() -> {
++                    try {
++                        this.asyncSpawnState = NaturalSpawner.createStateAsync(spawnableChunkCount, spawnSnapshot);
++                    } catch (Exception exception) {
++                        this.asyncSpawnCountFailed = true;
++                        throw exception;
++                    }
++                })) {
++                    this.spawnCountPending = false;
+                 }
+-            })) {
++            } catch (Exception exception) {
+                 this.spawnCountPending = false;
++                LOGGER.error("Failed to capture async mob spawn state for {}", this.level.dimension().identifier(), exception);
+             }
+         }
+         // Leaf end - Pufferfish - async mob spawning
+diff --git a/net/minecraft/world/level/NaturalSpawner.java b/net/minecraft/world/level/NaturalSpawner.java
+index f9c12fbb316a190880f5ed4b5531243b0e956368..3d62518d880de510e0febf34290c768dbe23b7d3 100644
+--- a/net/minecraft/world/level/NaturalSpawner.java
++++ b/net/minecraft/world/level/NaturalSpawner.java
+@@ -123,12 +123,13 @@ public final class NaturalSpawner {
+     }
+ 
+     // Leaf start - Pufferfish - async mob spawning
+-    public static SpawnState createStateAsync(
+-        final int spawnableChunkCount, final Iterable<Entity> entities, final ServerLevel level, final EnvironmentAttributeReader environmentAttributes, final boolean countAllMobsForSpawning
++    public record AsyncSpawnSnapshot(BlockPos pos, long chunkKey, MobCategory category, boolean hasCharge, double charge) {}
++
++    // Capture all mutable entity and world state on the world thread before submitting work.
++    public static List<AsyncSpawnSnapshot> captureAsyncSpawnSnapshot(
++        final Iterable<Entity> entities, final ServerLevel level, final EnvironmentAttributeReader environmentAttributes, final boolean countAllMobsForSpawning
+     ) {
+-        PotentialCalculator spawnPotential = new PotentialCalculator();
+-        Object2IntOpenHashMap<MobCategory> mobCounts = new Object2IntOpenHashMap<>();
+-        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<int[]> chunkCap = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
++        List<AsyncSpawnSnapshot> snapshots = new ArrayList<>();
+         for (Entity entity : entities) {
+             if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
+                 continue;
+@@ -142,19 +143,27 @@ public final class NaturalSpawner {
+                 && entity.spawnReason != org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN) {
+                 continue;
+             }
+-            BlockPos pos = entity.blockPosition();
++            BlockPos pos = entity.blockPosition().immutable();
+             long chunkKey = ChunkPos.pack(pos);
+             LevelChunk chunk = level.getChunkSource().fullChunks.get(chunkKey);
+             if (chunk != null) {
+                 MobSpawnSettings naturalMobSpawns = environmentAttributes.getValue(EnvironmentAttributes.NATURAL_MOB_SPAWNS, pos);
+                 MobSpawnSettings.MobSpawnCost cost = naturalMobSpawns.getMobSpawnCost(entity.getType());
+-                if (cost != null) {
+-                    spawnPotential.addCharge(pos, cost.charge());
+-                }
+-                mobCounts.addTo(category, 1);
+-                ++chunkCap.computeIfAbsent(chunkKey, key -> new int[net.minecraft.server.level.ServerPlayer.MOBCATEGORY_TOTAL_ENUMS])[category.ordinal()];
++                snapshots.add(new AsyncSpawnSnapshot(pos, chunkKey, category, cost != null, cost == null ? 0.0 : cost.charge()));
+             }
+         }
++        return snapshots;
++    }
++
++    public static SpawnState createStateAsync(final int spawnableChunkCount, final List<AsyncSpawnSnapshot> snapshots) {
++        PotentialCalculator spawnPotential = new PotentialCalculator();
++        Object2IntOpenHashMap<MobCategory> mobCounts = new Object2IntOpenHashMap<>();
++        it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<int[]> chunkCap = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
++        for (AsyncSpawnSnapshot snapshot : snapshots) {
++            if (snapshot.hasCharge()) spawnPotential.addCharge(snapshot.pos(), snapshot.charge());
++            mobCounts.addTo(snapshot.category(), 1);
++            ++chunkCap.computeIfAbsent(snapshot.chunkKey(), key -> new int[net.minecraft.server.level.ServerPlayer.MOBCATEGORY_TOTAL_ENUMS])[snapshot.category().ordinal()];
++        }
+         return new SpawnState(spawnableChunkCount, mobCounts, spawnPotential, null, chunkCap);
+     }
+ 
