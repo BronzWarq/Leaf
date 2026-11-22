@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leaf contributor <leaf-contributor@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 16:19:16 +0000
+Subject: [PATCH] Skip empty synchronous tracker removals
+
+
+diff --git a/net/minecraft/server/level/ChunkMap.java b/net/minecraft/server/level/ChunkMap.java
+index 5e4cc29c5d1da229082d4192dcf4d38eebbb8bc0..0013e883d9db6c83fb3ee68be17b493cac604abd 100644
+--- a/net/minecraft/server/level/ChunkMap.java
++++ b/net/minecraft/server/level/ChunkMap.java
+@@ -1681,6 +1681,10 @@ public class ChunkMap extends SimpleRegionStorage implements ChunkHolder.PlayerP
+                         return true;
+                     }
+                 } else {
++                    // Leaf - skip the set removal when the synchronous tracker has no viewers
++                    if (!org.dreeam.leaf.config.modules.async.MultithreadedTracker.enabled && this.seenBy.isEmpty()) {
++                        return false;
++                    }
+                     return this.removePlayerMulti(player); // Leaf - refresh the cached viewer array after removal
+                 }
+             }
